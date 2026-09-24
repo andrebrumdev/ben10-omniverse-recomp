@@ -104,6 +104,7 @@ int  ppu_guest_range_committed(uint32_t addr, uint32_t n);
  * see build_macos.sh). Weak: a build without the user's firmware still links
  * and falls back to the HLE for these libraries. */
 extern "C++" const ppu_lle_module g_lle_sail __attribute__((weak));
+extern "C++" const ppu_lle_module g_lle_pamf __attribute__((weak));
 
 #include "vm.h"
 
@@ -419,6 +420,7 @@ int main(int argc, char** argv)
     ppu_fs_register();       /* cellFs VFS over the real game directory       */
     lv2_init_syscalls();     /* real lv2 table (timer/event/spu/mutex/fs/...) */
     if (&g_lle_sail) ppu_lle_add(&g_lle_sail);   /* libsail.sprx, LLE */
+    if (&g_lle_pamf) ppu_lle_add(&g_lle_pamf);   /* libpamf.sprx (libsail's dependency) */
     ppu_resolve_imports();   /* patch .lib.stub slots -> HLE / LLE modules    */
     fprintf(stderr, "[boot] %u lifted functions registered, HLE wired\n",
             ppu_function_count());

@@ -102,25 +102,30 @@ LIBS=$(ls "$PS3"/libs/*/*.c | xargs -n1 basename | sed 's/\.c$//' | sort -u | gr
 clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" -I "$PS3/libs" "$LIFT/gen/ppu_hle_nids.cpp" -o "$LIFT/ppu_hle_nids.o"
 
 echo "=== 3b. lifted firmware modules (firmware/, optional) ==="
-# libsail.sprx lifted by tools/lift_prx.py + ppu_lifter.py (see notes/). Only the
-# user's own firmware can produce these, so the step is skipped when absent.
+# dev_flash PRXs lifted by tools/lift_prx.py + ppu_lifter.py (see notes/): lib<m>
+# in firmware/lib<m>/ (bind unit) and recomp_prx_<m>/ (lifted code). Only the
+# user's own firmware can produce these, so a module that is absent stays HLE.
+LLE_MODULES="${LLE_MODULES:-sail pamf}"
 LLE_OBJS=()
-if [ -f "$HERE/firmware/libsail/libsail_bind.cpp" ] && [ -f "$HERE/recomp_prx_sail/ppu_recomp_000.cpp" ]; then
-    for f in "$HERE"/recomp_prx_sail/ppu_recomp_*.cpp; do
+for m in $LLE_MODULES; do
+    B="$HERE/firmware/lib$m/lib${m}_bind.cpp"; L="$HERE/recomp_prx_$m"
+    if [ ! -f "$B" ] || [ ! -f "$L/ppu_recomp_000.cpp" ]; then
+        echo "  lib$m: not present -> HLE"; continue
+    fi
+    n0=${#LLE_OBJS[@]}
+    for f in "$L"/ppu_recomp_*.cpp; do
         o="$f$OBJ_SUFFIX"
         if [ "$FORCE_REBUILD_LIFT" = "1" ] || [ ! -f "$o" ] || [ "$f" -nt "$o" ]; then
-            clang++ -std=c++20 "$LIFT_OPT" $MCPU -w -c -I "$HERE/recomp_prx_sail" -I "$PS3/include" \
+            clang++ -std=c++20 "$LIFT_OPT" $MCPU -w -c -I "$L" -I "$PS3/include" \
                 -I "$PS3/runtime/ppu" "$f" -o "$o"
         fi
         LLE_OBJS+=("$o")
     done
-    clang++ -std=c++20 $HOST_OPT $MCPU -w -c -I "$HERE/recomp_prx_sail" -I "$PS3/include" -I "$PS3/runtime/ppu" \
-        "$HERE/firmware/libsail/libsail_bind.cpp" -o "$HERE/firmware/libsail/libsail_bind.o"
-    LLE_OBJS+=("$HERE/firmware/libsail/libsail_bind.o")
-    echo "  libsail: LLE (${#LLE_OBJS[@]} objects)"
-else
-    echo "  libsail: not present -> HLE"
-fi
+    clang++ -std=c++20 $HOST_OPT $MCPU -w -c -I "$L" -I "$PS3/include" -I "$PS3/runtime/ppu" \
+        "$B" -o "${B%.cpp}.o"
+    LLE_OBJS+=("${B%.cpp}.o")
+    echo "  lib$m: LLE ($(( ${#LLE_OBJS[@]} - n0 )) objects)"
+done
 
 echo "=== 4. boot host -> .o ==="
 clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" "$HERE/boot_macos.cpp" -o "$LIFT/boot_macos.o"
