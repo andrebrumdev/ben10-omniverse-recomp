@@ -30,3 +30,7 @@ recomp_macos*/
 *.log
 *.cclog
 boot_ben10*
+
+# ---- Firmware (copyright -- NEVER commit: decrypted PRX, relocated image, lift) ----
+firmware/
+recomp_prx*/

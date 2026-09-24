@@ -101,6 +101,27 @@ LIBS=$(ls "$PS3"/libs/*/*.c | xargs -n1 basename | sed 's/\.c$//' | sort -u | gr
 "$PYBIN" "$PS3/tools/gen_hle_nids.py" --out "$LIFT/gen/ppu_hle_nids.cpp" $LIBS > /dev/null
 clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" -I "$PS3/libs" "$LIFT/gen/ppu_hle_nids.cpp" -o "$LIFT/ppu_hle_nids.o"
 
+echo "=== 3b. lifted firmware modules (firmware/, optional) ==="
+# libsail.sprx lifted by tools/lift_prx.py + ppu_lifter.py (see notes/). Only the
+# user's own firmware can produce these, so the step is skipped when absent.
+LLE_OBJS=()
+if [ -f "$HERE/firmware/libsail/libsail_bind.cpp" ] && [ -f "$HERE/recomp_prx_sail/ppu_recomp_000.cpp" ]; then
+    for f in "$HERE"/recomp_prx_sail/ppu_recomp_*.cpp; do
+        o="$f$OBJ_SUFFIX"
+        if [ "$FORCE_REBUILD_LIFT" = "1" ] || [ ! -f "$o" ] || [ "$f" -nt "$o" ]; then
+            clang++ -std=c++20 "$LIFT_OPT" $MCPU -w -c -I "$HERE/recomp_prx_sail" -I "$PS3/include" \
+                -I "$PS3/runtime/ppu" "$f" -o "$o"
+        fi
+        LLE_OBJS+=("$o")
+    done
+    clang++ -std=c++20 $HOST_OPT $MCPU -w -c -I "$HERE/recomp_prx_sail" -I "$PS3/include" -I "$PS3/runtime/ppu" \
+        "$HERE/firmware/libsail/libsail_bind.cpp" -o "$HERE/firmware/libsail/libsail_bind.o"
+    LLE_OBJS+=("$HERE/firmware/libsail/libsail_bind.o")
+    echo "  libsail: LLE (${#LLE_OBJS[@]} objects)"
+else
+    echo "  libsail: not present -> HLE"
+fi
+
 echo "=== 4. boot host -> .o ==="
 clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" "$HERE/boot_macos.cpp" -o "$LIFT/boot_macos.o"
 
@@ -109,6 +130,11 @@ SDL_FLAGS="${SDL_FLAGS-$(pkg-config --libs sdl2)}"
 VK_FLAGS=""
 if [ -f /opt/homebrew/lib/libvulkan.dylib ]; then
     VK_FLAGS="-L/opt/homebrew/lib -lvulkan"
+    # The runtime archive's Vulkan backend requires shaderc (only compiled in when CMake found it).
+    if pkg-config --exists shaderc; then VK_FLAGS="$VK_FLAGS $(pkg-config --libs shaderc)"; fi
+fi
+if [ -d /opt/homebrew/lib ]; then
+    VK_FLAGS="$VK_FLAGS -Wl,-rpath,/opt/homebrew/lib"
 fi
 clang++ -std=c++20 $HOST_OPT $MCPU \
     "${LIFT_OBJS[@]}" \
@@ -116,6 +142,7 @@ clang++ -std=c++20 $HOST_OPT $MCPU \
     "$LIFT"/ppu_sysprx.o "$LIFT"/ppu_fs.o "$LIFT"/ppu_icall_ascii.o \
     "$LIFT"/ppu_vm_fast_policy.o "$LIFT"/ppu_p10_ctr.o \
     "$LIFT"/ppu_hle_nids.o "$LIFT"/boot_macos.o \
+    ${LLE_OBJS[@]+"${LLE_OBJS[@]}"} \
     "$RUNTIME_LIB" \
     -framework Metal -framework MetalFX -framework MetalPerformanceShaders -framework QuartzCore -framework Foundation \
     -framework Cocoa -framework CoreText \

@@ -98,6 +98,12 @@ int  ppu_guest_range_committed(uint32_t addr, uint32_t n);
 } /* extern "C" */
 
 #include "rsx_overlay.h"
+#include "ppu_lle.h"
+
+/* Lifted firmware modules (firmware/, gitignored; built only when present --
+ * see build_macos.sh). Weak: a build without the user's firmware still links
+ * and falls back to the HLE for these libraries. */
+extern "C++" const ppu_lle_module g_lle_sail __attribute__((weak));
 
 #include "vm.h"
 
@@ -412,7 +418,8 @@ int main(int argc, char** argv)
     ppu_sysprx_register();   /* boot-critical CRT (sys_initialize_tls, ...)   */
     ppu_fs_register();       /* cellFs VFS over the real game directory       */
     lv2_init_syscalls();     /* real lv2 table (timer/event/spu/mutex/fs/...) */
-    ppu_resolve_imports();   /* patch .lib.stub slots -> HLE bridge           */
+    if (&g_lle_sail) ppu_lle_add(&g_lle_sail);   /* libsail.sprx, LLE */
+    ppu_resolve_imports();   /* patch .lib.stub slots -> HLE / LLE modules    */
     fprintf(stderr, "[boot] %u lifted functions registered, HLE wired\n",
             ppu_function_count());
 
