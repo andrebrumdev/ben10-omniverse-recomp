@@ -101,10 +101,48 @@ int  ppu_guest_range_committed(uint32_t addr, uint32_t n);
 #include "ppu_lle.h"
 
 /* Lifted firmware modules (firmware/, gitignored; built only when present --
- * see build_macos.sh). Weak: a build without the user's firmware still links
- * and falls back to the HLE for these libraries. */
-extern "C++" const ppu_lle_module g_lle_sail __attribute__((weak));
-extern "C++" const ppu_lle_module g_lle_pamf __attribute__((weak));
+ * see build_macos.sh). A module that is absent stays HLE.
+ *
+ * PS3_LLE_HAVE_<M> comes from build_macos.sh step 3b (-D, one per module
+ * actually present in this link). It has to gate the *declaration*, not just
+ * the ppu_lle_add() call below: on Darwin a `__attribute__((weak))`
+ * declaration with no definition ANYWHERE in a statically linked executable
+ * is a hard "Undefined symbols" link error, not a null pointer at runtime --
+ * that weak_import null-fallback is a dyld (dynamic library) feature and does
+ * not apply here (same finding as the PGO writer's weak-declaration note in
+ * ppu_loader.cpp). Measured 2026-09-24: the link failed exactly this way for
+ * g_lle_avcdec/g_lle_apostsrc, whose lift is blocked upstream (see
+ * notes/2026-09-24-survey.md). */
+#ifdef PS3_LLE_HAVE_SAIL
+extern "C++" const ppu_lle_module g_lle_sail;
+#endif
+#ifdef PS3_LLE_HAVE_PAMF
+extern "C++" const ppu_lle_module g_lle_pamf;
+#endif
+#ifdef PS3_LLE_HAVE_DMUX
+extern "C++" const ppu_lle_module g_lle_dmux;
+#endif
+#ifdef PS3_LLE_HAVE_DMUXPAMF
+extern "C++" const ppu_lle_module g_lle_dmuxpamf;
+#endif
+#ifdef PS3_LLE_HAVE_ADEC
+extern "C++" const ppu_lle_module g_lle_adec;
+#endif
+#ifdef PS3_LLE_HAVE_ATXDEC
+extern "C++" const ppu_lle_module g_lle_atxdec;
+#endif
+#ifdef PS3_LLE_HAVE_VDEC
+extern "C++" const ppu_lle_module g_lle_vdec;
+#endif
+#ifdef PS3_LLE_HAVE_AVCDEC
+extern "C++" const ppu_lle_module g_lle_avcdec;
+#endif
+#ifdef PS3_LLE_HAVE_VPOST
+extern "C++" const ppu_lle_module g_lle_vpost;
+#endif
+#ifdef PS3_LLE_HAVE_APOSTSRC
+extern "C++" const ppu_lle_module g_lle_apostsrc;
+#endif
 
 #include "vm.h"
 
@@ -419,8 +457,36 @@ int main(int argc, char** argv)
     ppu_sysprx_register();   /* boot-critical CRT (sys_initialize_tls, ...)   */
     ppu_fs_register();       /* cellFs VFS over the real game directory       */
     lv2_init_syscalls();     /* real lv2 table (timer/event/spu/mutex/fs/...) */
-    if (&g_lle_sail) ppu_lle_add(&g_lle_sail);   /* libsail.sprx, LLE */
-    if (&g_lle_pamf) ppu_lle_add(&g_lle_pamf);   /* libpamf.sprx (libsail's dependency) */
+#ifdef PS3_LLE_HAVE_SAIL
+    ppu_lle_add(&g_lle_sail);   /* libsail.sprx, LLE */
+#endif
+#ifdef PS3_LLE_HAVE_PAMF
+    ppu_lle_add(&g_lle_pamf);   /* libpamf.sprx (libsail's dependency) */
+#endif
+#ifdef PS3_LLE_HAVE_DMUX
+    ppu_lle_add(&g_lle_dmux);   /* libdmux.sprx (demuxer core) */
+#endif
+#ifdef PS3_LLE_HAVE_DMUXPAMF
+    ppu_lle_add(&g_lle_dmuxpamf);   /* libdmuxpamf.sprx (PAMF demux plugin) */
+#endif
+#ifdef PS3_LLE_HAVE_ADEC
+    ppu_lle_add(&g_lle_adec);   /* libadec.sprx (audio decoder core) */
+#endif
+#ifdef PS3_LLE_HAVE_ATXDEC
+    ppu_lle_add(&g_lle_atxdec);   /* libatxdec.sprx (ATRAC3plus decoder plugin) */
+#endif
+#ifdef PS3_LLE_HAVE_VDEC
+    ppu_lle_add(&g_lle_vdec);   /* libvdec.sprx (video decoder core) */
+#endif
+#ifdef PS3_LLE_HAVE_AVCDEC
+    ppu_lle_add(&g_lle_avcdec);   /* libavcdec.sprx (AVC decoder plugin) */
+#endif
+#ifdef PS3_LLE_HAVE_VPOST
+    ppu_lle_add(&g_lle_vpost);   /* libvpost.sprx (post-processing) */
+#endif
+#ifdef PS3_LLE_HAVE_APOSTSRC
+    ppu_lle_add(&g_lle_apostsrc);   /* libapostsrc_mini.sprx (audio post source) */
+#endif
     ppu_resolve_imports();   /* patch .lib.stub slots -> HLE / LLE modules    */
     fprintf(stderr, "[boot] %u lifted functions registered, HLE wired\n",
             ppu_function_count());

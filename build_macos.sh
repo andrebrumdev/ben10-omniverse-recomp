@@ -105,8 +105,19 @@ echo "=== 3b. lifted firmware modules (firmware/, optional) ==="
 # dev_flash PRXs lifted by tools/lift_prx.py + ppu_lifter.py (see notes/): lib<m>
 # in firmware/lib<m>/ (bind unit) and recomp_prx_<m>/ (lifted code). Only the
 # user's own firmware can produce these, so a module that is absent stays HLE.
-LLE_MODULES="${LLE_MODULES:-sail pamf}"
+LLE_MODULES="${LLE_MODULES:-sail pamf dmux dmuxpamf adec atxdec vdec avcdec vpost apostsrc}"
 LLE_OBJS=()
+# Per-module -DPS3_LLE_HAVE_<M> for boot_macos.cpp: an absent module has no
+# lib<m>_bind.cpp anywhere in this link, so its g_lle_<m> symbol would be a
+# plain undefined weak *declaration* -- on Darwin's static linker that is a
+# hard "Undefined symbols" error, not a null pointer (dyld's weak_import
+# null-fallback only applies to symbols coming from a separate dylib/
+# framework, never to a symbol simply missing from a static executable's own
+# link -- confirmed the same way as the PGO writer's weak-declaration note in
+# ppu_loader.cpp: declaring is not defining). Gate the declaration and the
+# ppu_lle_add() call at compile time instead of relying on the address being
+# null at runtime.
+LLE_HAVE_DEFS=()
 for m in $LLE_MODULES; do
     B="$HERE/firmware/lib$m/lib${m}_bind.cpp"; L="$HERE/recomp_prx_$m"
     if [ ! -f "$B" ] || [ ! -f "$L/ppu_recomp_000.cpp" ]; then
@@ -124,11 +135,13 @@ for m in $LLE_MODULES; do
     clang++ -std=c++20 $HOST_OPT $MCPU -w -c -I "$L" -I "$PS3/include" -I "$PS3/runtime/ppu" \
         "$B" -o "${B%.cpp}.o"
     LLE_OBJS+=("${B%.cpp}.o")
+    LLE_HAVE_DEFS+=("-DPS3_LLE_HAVE_$(echo "$m" | tr '[:lower:]' '[:upper:]')=1")
     echo "  lib$m: LLE ($(( ${#LLE_OBJS[@]} - n0 )) objects)"
 done
 
 echo "=== 4. boot host -> .o ==="
-clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" "$HERE/boot_macos.cpp" -o "$LIFT/boot_macos.o"
+clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" "${LLE_HAVE_DEFS[@]:-}" \
+    "$HERE/boot_macos.cpp" -o "$LIFT/boot_macos.o"
 
 echo "=== 5. link ==="
 SDL_FLAGS="${SDL_FLAGS-$(pkg-config --libs sdl2)}"
