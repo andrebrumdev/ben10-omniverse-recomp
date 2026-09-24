@@ -111,8 +111,9 @@ int  ppu_guest_range_committed(uint32_t addr, uint32_t n);
  * that weak_import null-fallback is a dyld (dynamic library) feature and does
  * not apply here (same finding as the PGO writer's weak-declaration note in
  * ppu_loader.cpp). Measured 2026-09-24: the link failed exactly this way for
- * g_lle_avcdec/g_lle_apostsrc, whose lift is blocked upstream (see
- * notes/2026-09-24-survey.md). */
+ * g_lle_avcdec/g_lle_apostsrc when their lift was still blocked by an upstream
+ * ppu_lifter.py bug (fixed same day in ps3recomp 8699c475); both now lift and
+ * link fine like every other module here (see notes/2026-09-24-survey.md). */
 #ifdef PS3_LLE_HAVE_SAIL
 extern "C++" const ppu_lle_module g_lle_sail;
 #endif
