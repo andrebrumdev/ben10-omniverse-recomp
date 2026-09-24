@@ -25,3 +25,6 @@ recomp_macos*/
 
 # ---- OS ----
 .DS_Store
+
+# ---- Logs de execucao (regeneraveis) ----
+*.log
