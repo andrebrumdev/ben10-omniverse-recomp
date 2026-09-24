@@ -28,3 +28,5 @@ recomp_macos*/
 
 # ---- Logs de execucao (regeneraveis) ----
 *.log
+*.cclog
+boot_ben10*
