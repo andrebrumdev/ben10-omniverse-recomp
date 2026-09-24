@@ -1,0 +1,287 @@
+{
+ "sys_fs": {
+  "funcs": [
+   "0x2cb51f0d",
+   "0x4d5ff8e2",
+   "0x718bf5f8",
+   "0x7de6dced",
+   "0x9f951810",
+   "0xa397d042",
+   "0xc1c507e7",
+   "0xdb869f20"
+  ],
+  "vars": []
+ },
+ "cellGcmSys": {
+  "funcs": [
+   "0x55bd74d",
+   "0x15bae46b",
+   "0x21397818",
+   "0x21ac3697",
+   "0x3a33c1fd",
+   "0x4524cccd",
+   "0x4ae8d215",
+   "0x51c9d62b",
+   "0x5e2ee0f0",
+   "0x63387071",
+   "0x72a577ce",
+   "0x8cdf8c70",
+   "0x9ba451e4",
+   "0xa114ec67",
+   "0xa53d12ae",
+   "0xa547adde",
+   "0xb2e761d4",
+   "0xbd100dbc",
+   "0xd34a420d",
+   "0xd8f88e1a",
+   "0xd9b7653e",
+   "0xe315a0b2",
+   "0xefd00f54"
+  ],
+  "vars": []
+ },
+ "cellSysutil": {
+  "funcs": [
+   "0xbae8772",
+   "0x189a74da",
+   "0x248bd1d8",
+   "0x40b34847",
+   "0x40e895d3",
+   "0x52aac4fa",
+   "0x62b0f803",
+   "0x7603d3db",
+   "0x887572d5",
+   "0x8b8a2f48",
+   "0x9d98afa0",
+   "0xa322db75",
+   "0xcdc6aefd",
+   "0xe558748d",
+   "0xe7fa820b",
+   "0xedadd797",
+   "0x4692ab35",
+   "0x7663e368",
+   "0xc01b4e7c",
+   "0xe5e2b09d",
+   "0xed5d96af",
+   "0xf4e3caa0"
+  ],
+  "vars": []
+ },
+ "cellUserInfo": {
+  "funcs": [
+   "0x2b761140",
+   "0x3097cc1c"
+  ],
+  "vars": []
+ },
+ "cellSysmodule": {
+  "funcs": [
+   "0x112a5ee9",
+   "0x32267a31",
+   "0x63ff6ff9",
+   "0x96c07adf"
+  ],
+  "vars": []
+ },
+ "cellSysutilAvconfExt": {
+  "funcs": [
+   "0xc7020f62"
+  ],
+  "vars": []
+ },
+ "cellSpurs": {
+  "funcs": [
+   "0x22aab31d",
+   "0x303c19cd",
+   "0x3548f483",
+   "0x373523d4",
+   "0x5ef96465",
+   "0x68aaeba9",
+   "0x87630976",
+   "0xacfc8dbc",
+   "0xd5d0b256",
+   "0xf31731bb",
+   "0x4e66d483",
+   "0x52cc6c82",
+   "0x9f72add3",
+   "0xa789e631",
+   "0xb9bc6207",
+   "0xbeb600ac",
+   "0xe0a6dbe4"
+  ],
+  "vars": []
+ },
+ "cellAudio": {
+  "funcs": [
+   "0xb168f92",
+   "0x5b1e2c73",
+   "0x74a66af0",
+   "0x89be28f2",
+   "0xcd7bc431",
+   "0x377e0cd9",
+   "0x4109d08c",
+   "0x4129fe2d",
+   "0xe4046afe",
+   "0xff3626fd"
+  ],
+  "vars": []
+ },
+ "cellSail": {
+  "funcs": [
+   "0x247c69e",
+   "0xabb318b",
+   "0x1139a206",
+   "0x18b4629d",
+   "0x18bcd21b",
+   "0x1c983864",
+   "0x23654375",
+   "0x28336e89",
+   "0x2e3ccb5e",
+   "0x346ebba3",
+   "0x34ecc1b9",
+   "0x3a2d806c",
+   "0x3d0d3b72",
+   "0x44a20e79",
+   "0x47632810",
+   "0x4cc54f8e",
+   "0x54c53688",
+   "0x752f8585",
+   "0x76488bb1",
+   "0x764ec2d2",
+   "0x7c8dff3b",
+   "0x7eb8d6b5",
+   "0x85beffcc",
+   "0x9553af65",
+   "0x95ee1695",
+   "0x9d30bdce",
+   "0xa37fed15",
+   "0xbdf21b0f",
+   "0xbedccc74",
+   "0xd1462438",
+   "0xd1d55a90",
+   "0xd7938b8d",
+   "0xe535b0d3",
+   "0xeba8d4ec",
+   "0xee724c99",
+   "0xeec22809",
+   "0xf25f197d",
+   "0xf289f0cd",
+   "0xfc839bd4",
+   "0xffd58aa4"
+  ],
+  "vars": []
+ },
+ "cellNetCtl": {
+  "funcs": [
+   "0x4459230",
+   "0xf1f13d3"
+  ],
+  "vars": []
+ },
+ "sceNp": {
+  "funcs": [
+   "0xe53cc",
+   "0x2ecd48ed",
+   "0x442381f7",
+   "0x4b9efb7a",
+   "0x6ee62ed2",
+   "0xad218faf",
+   "0xb1e0718b",
+   "0xbe07c708",
+   "0xe7dcd3b4",
+   "0xeb7a3d84",
+   "0xf283c143",
+   "0xfe37a7f4"
+  ],
+  "vars": []
+ },
+ "sceNpTrophy": {
+  "funcs": [
+   "0x1197b52c",
+   "0x1c25470d",
+   "0x370136fe",
+   "0x3741ecc7",
+   "0x39567781",
+   "0x623cd2dc",
+   "0x8ceedd21",
+   "0xa7fabf4d",
+   "0xb3ac3478",
+   "0xe3bf9a28"
+  ],
+  "vars": []
+ },
+ "sceNp2": {
+  "funcs": [
+   "0x41251f74",
+   "0xaadb7c12"
+  ],
+  "vars": []
+ },
+ "cellGame": {
+  "funcs": [
+   "0x70acec67",
+   "0xce4374f6",
+   "0xdb9819f3",
+   "0xf52639ea"
+  ],
+  "vars": []
+ },
+ "sceNpCommerce2": {
+  "funcs": [
+   "0x3539d233",
+   "0xeef51be0"
+  ],
+  "vars": []
+ },
+ "sys_io": {
+  "funcs": [
+   "0xd5f2c14",
+   "0x1cf98800",
+   "0x2073b7f6",
+   "0x2f1774d5",
+   "0x3138e632",
+   "0x3ef66b95",
+   "0x433f6ec0",
+   "0x4cc9b68d",
+   "0x4d9b75d5",
+   "0x578e3c98",
+   "0x5baf30fb",
+   "0x8b72cda1",
+   "0xa5f85e4d",
+   "0xa703a51d",
+   "0xbfce3285",
+   "0xc9030138",
+   "0xdeefdfa7",
+   "0xe10183ce",
+   "0xf65544ee",
+   "0xff0a21b7"
+  ],
+  "vars": []
+ },
+ "sysPrxForUser": {
+  "funcs": [
+   "0x1573dc3f",
+   "0x1bc200f4",
+   "0x24a1ea07",
+   "0x2c847572",
+   "0x2f85c0ef",
+   "0x350d454e",
+   "0x35168520",
+   "0x42b23552",
+   "0x44265c08",
+   "0x744680a2",
+   "0x8461e528",
+   "0x8a561d92",
+   "0x96328741",
+   "0xa2c7ba64",
+   "0xaeb78725",
+   "0xaede4b03",
+   "0xaff080a4",
+   "0xb2fcf2c8",
+   "0xc3476d0c",
+   "0xe0da8efd",
+   "0xe6f2c1e7"
+  ],
+  "vars": []
+ }
+}

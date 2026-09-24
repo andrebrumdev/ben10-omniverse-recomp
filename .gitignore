@@ -1,0 +1,27 @@
+# ---- Game data (copyright — NEVER commit) ----
+extracted/
+EBOOT.BIN
+EBOOT.ELF
+*.elf
+*.iso
+*.7z
+*.self
+*.sprx
+*.pkg
+*.rap
+spu_images/
+*.at3
+*.cin
+*.loc
+*.et
+
+# ---- Build artifacts (regenerable) ----
+*.o
+*.a
+build/
+build-*/
+recomp/
+recomp_macos*/
+
+# ---- OS ----
+.DS_Store

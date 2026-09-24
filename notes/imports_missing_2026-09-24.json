@@ -1,0 +1,103 @@
+{
+ "cellAudio": [
+  "cellAudioGetPortTimestamp",
+  "cellAudioGetPortBlockTag"
+ ],
+ "cellGame": [
+  "0xce4374f6"
+ ],
+ "cellGcmSys": [
+  "_cellGcmFunc15"
+ ],
+ "cellNetCtl": [],
+ "cellSail": [
+  "0x247c69e",
+  "0x18b4629d",
+  "0x1c983864",
+  "0x23654375",
+  "0x2e3ccb5e",
+  "0x3a2d806c",
+  "0x3d0d3b72",
+  "0x44a20e79",
+  "0x47632810",
+  "0x4cc54f8e",
+  "0x54c53688",
+  "0x752f8585",
+  "0x76488bb1",
+  "0x764ec2d2",
+  "0x7eb8d6b5",
+  "0x9553af65",
+  "0x95ee1695",
+  "0x9d30bdce",
+  "0xa37fed15",
+  "0xbedccc74",
+  "0xd1462438",
+  "0xd1d55a90",
+  "0xee724c99",
+  "0xeec22809",
+  "0xf25f197d",
+  "0xf289f0cd",
+  "0xffd58aa4"
+ ],
+ "cellSpurs": [
+  "cellSpursEventFlagDetachLv2EventQueue",
+  "cellSpursCreateJobChainWithAttribute",
+  "0x3548f483",
+  "0x68aaeba9",
+  "0xd5d0b256"
+ ],
+ "cellSysmodule": [
+  "cellSysmoduleFinalize"
+ ],
+ "cellSysutil": [
+  "0x248bd1d8",
+  "0x40b34847",
+  "0x52aac4fa",
+  "0x8b8a2f48",
+  "cellVideoOutGetResolutionAvailability",
+  "0xcdc6aefd",
+  "0xe7fa820b",
+  "cellAudioOutConfigure",
+  "cellAudioOutGetState"
+ ],
+ "cellSysutilAvconfExt": [],
+ "cellUserInfo": [
+  "0x3097cc1c"
+ ],
+ "sceNp": [
+  "0xe53cc",
+  "0x2ecd48ed",
+  "0x442381f7",
+  "0x4b9efb7a",
+  "0x6ee62ed2",
+  "sceNpDrmIsAvailable",
+  "0xb1e0718b",
+  "0xeb7a3d84",
+  "0xf283c143"
+ ],
+ "sceNp2": [
+  "0x41251f74",
+  "0xaadb7c12"
+ ],
+ "sceNpCommerce2": [
+  "0xeef51be0"
+ ],
+ "sceNpTrophy": [],
+ "sysPrxForUser": [
+  "_sys_heap_malloc",
+  "sys_prx_register_library",
+  "_sys_heap_memalign",
+  "_sys_heap_free",
+  "0xaede4b03",
+  "_sys_heap_create_heap",
+  "sys_spu_image_close"
+ ],
+ "sys_fs": [
+  "0x9f951810",
+  "0xc1c507e7"
+ ],
+ "sys_io": [
+  "0x4cc9b68d",
+  "cellKbRead"
+ ]
+}
