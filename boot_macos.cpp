@@ -277,6 +277,10 @@ Backend pick_backend()
     const char* name = "sdl";
     if (b == Backend::Metal)  name = "metal";
     if (b == Backend::Vulkan) name = "vulkan";
+    /* cellGcmSys's rsx_bridge_mode reads PS3_RSX_BACKEND: without it (the default above,
+     * or an unknown value) the GCM never presented to the backend picked here and every
+     * frame stayed black. Publish the choice, as the Vulkan fallback below already does. */
+    setenv("PS3_RSX_BACKEND", name, 1);
     fprintf(stderr, "[boot] RSX backend=%s\n", name);
     fflush(stderr);
     return b;
