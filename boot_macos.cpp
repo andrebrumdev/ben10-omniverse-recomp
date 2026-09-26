@@ -22,6 +22,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <atomic>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "ppu_recomp.h"
 
@@ -415,6 +418,56 @@ int commit_guest_regions()
 
 } /* namespace */
 
+/*
+ * The guest's main thread blocks for long stretches: at the title screen Ben 10
+ * sits in cellSpursEventFlagWait -> sys_event_queue_receive_host. On the process
+ * main thread that stops AppKit's event loop (spinning cursor, no keyboard, no
+ * START) because SDL events are only pumped by a flip on the main thread.
+ * With Metal the guest runs on its own thread (same 32 MB stack the linker gives
+ * the main thread) and the main thread only pumps the window, like the iOS host.
+ * PS3_GUEST_ON_MAIN=1 restores the old layout.
+ */
+static std::atomic<int> g_guest_done{0};
+static int g_guest_rc;
+
+struct GuestArgs { uint32_t entry; };
+
+static void* guest_thread_main(void* p)
+{
+    const GuestArgs* a = static_cast<const GuestArgs*>(p);
+    pthread_setname_np("guest-main");
+    g_guest_rc = ppu_run(a->entry, GUEST_STACK_TOP);
+    g_guest_done.store(1);
+    return nullptr;
+}
+
+static int run_guest(uint32_t entry)
+{
+    const char* on_main = getenv("PS3_GUEST_ON_MAIN");
+    if (g_backend != Backend::Metal || (on_main && on_main[0] == '1'))
+        return ppu_run(entry, GUEST_STACK_TOP);
+
+    static GuestArgs args;
+    args.entry = entry;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, 0x2000000);   /* = -Wl,-stack_size in build_macos.sh */
+    pthread_t th;
+    if (pthread_create(&th, &attr, guest_thread_main, &args) != 0) {
+        pthread_attr_destroy(&attr);
+        fprintf(stderr, "[boot] guest thread create failed -> guest on the main thread\n");
+        return ppu_run(entry, GUEST_STACK_TOP);
+    }
+    pthread_attr_destroy(&attr);
+    fprintf(stderr, "[boot] guest on its own thread; main thread pumps the window\n");
+    while (!g_guest_done.load()) {
+        rsx_metal_backend_pump_messages();   /* quit paths leave via _exit inside */
+        usleep(4000);
+    }
+    pthread_join(th, nullptr);
+    return g_guest_rc;
+}
+
 int main(int argc, char** argv)
 {
     const char* elf_path = (argc > 1) ? argv[1] : "EBOOT.ELF";
@@ -541,7 +594,7 @@ int main(int argc, char** argv)
     fprintf(stderr, "[boot] entering guest (stack top 0x%08X)\n", GUEST_STACK_TOP);
     fflush(stderr);
 
-    int rc = ppu_run(entry, GUEST_STACK_TOP);
+    int rc = run_guest(entry);
 
     fprintf(stderr, "[boot] guest returned rc=%d\n", rc);
 
