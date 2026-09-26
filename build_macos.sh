@@ -170,7 +170,7 @@ if [ -f "$JOB_MANIFEST" ]; then
     rm -rf "$JOBDIR"
     lift_rc=0
     "$PYBIN" "$PS3/tools/lift_spu_jobs.py" --manifest "$JOB_MANIFEST" --elf "$HERE/EBOOT.ELF" \
-        --out "$JOBDIR" --prefix ben10 --first-image-id 16 || lift_rc=$?
+        --task-dir "$HERE/spu_tasks" --out "$JOBDIR" --prefix ben10 --first-image-id 16 || lift_rc=$?
     if [ "$lift_rc" -eq 2 ]; then
         # Fingerprint mismatch: another game version. The weak
         # ben10_register_spu_jobs covers the link; every job is interpreted.

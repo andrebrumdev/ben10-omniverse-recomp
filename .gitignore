@@ -34,3 +34,8 @@ boot_ben10*
 # ---- Firmware (copyright -- NEVER commit: decrypted PRX, relocated image, lift) ----
 firmware/
 recomp_prx*/
+# SPURS task ELFs dumped from memory (firmware codecs) and their lift
+spu_tasks/
+
+# PGO profiles (regenerable)
+pgo/

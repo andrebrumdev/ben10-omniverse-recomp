@@ -25,3 +25,18 @@ ea = 0x00843080
 size = 7632
 fp = 0x0eb2972dcbd8707d
 ls_base = 0x1000
+
+# SPURS task ELFs of the firmware codecs (not in EBOOT.ELF): lifted from
+# spu_tasks/spu_task_<fp>.elf, written by one run with
+# PS3_SPU_TASK_DUMP=$PWD/spu_tasks. Missing file = the task stays interpreted.
+# Measured 2026-09-26 in the intro movies (PS3_TRACE_SPU_TASK): a1acac runs to
+# EXIT without parking and takes ~50% of the interpreter's time. (96e96c, the
+# next one, loads overlays at LS 0x3080 -- not liftable as one image.)
+[[task]]
+name = "task_a1acac"
+fp = 0xa1acacde5c1d9cbd
+
+# Not listed (measured 2026-09-26): 4ba8d5 (0x4ba8d5e28029a279) and 58a92a
+# (0x58a92a5af667c0fc) park in WAIT_SIGNAL; run mixed-mode they diverged (5x more
+# parks, movies minutes long) -- interpreted until a task differential validator
+# exists.
