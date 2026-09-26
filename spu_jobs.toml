@@ -18,3 +18,10 @@ ea = 0x0084B600
 size = 6352
 fp = 0xe1845cea62cebd9e
 ls_base = 0x1000
+
+[[job]]
+name = "job_843080"
+ea = 0x00843080
+size = 7632
+fp = 0x0eb2972dcbd8707d
+ls_base = 0x1000
