@@ -139,6 +139,19 @@ for m in $LLE_MODULES; do
     echo "  lib$m: LLE ($(( ${#LLE_OBJS[@]} - n0 )) objects)"
 done
 
+echo "=== 3c. lifted SPU jobs (spu_jobs.toml) ==="
+JOB_OBJS=()
+if [ -f "$HERE/spu_jobs.toml" ]; then
+    JOBDIR="$LIFT/spu_jobs"
+    "$PYBIN" "$PS3/tools/lift_spu_jobs.py" --manifest "$HERE/spu_jobs.toml" --elf "$HERE/EBOOT.ELF" \
+        --out "$JOBDIR" --prefix ben10 --first-image-id 16
+    for c in "$JOBDIR"/*/spu_recomp.c "$JOBDIR"/spu_jobs_register.c; do
+        clang -std=c11 -O2 $MCPU -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
+        JOB_OBJS+=("$c.o")
+    done
+    echo "  $(( ${#JOB_OBJS[@]} - 1 )) job(s) lifted"
+fi
+
 echo "=== 4. boot host -> .o ==="
 clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" "${LLE_HAVE_DEFS[@]:-}" \
     "$HERE/boot_macos.cpp" -o "$LIFT/boot_macos.o"
@@ -161,6 +174,7 @@ clang++ -std=c++20 $HOST_OPT $MCPU \
     "$LIFT"/ppu_vm_fast_policy.o "$LIFT"/ppu_p10_ctr.o \
     "$LIFT"/ppu_hle_nids.o "$LIFT"/boot_macos.o \
     ${LLE_OBJS[@]+"${LLE_OBJS[@]}"} \
+    ${JOB_OBJS[@]+"${JOB_OBJS[@]}"} \
     "$RUNTIME_LIB" \
     -framework Metal -framework MetalFX -framework MetalPerformanceShaders -framework QuartzCore -framework Foundation \
     -framework Cocoa -framework CoreText \

@@ -1,0 +1,20 @@
+[[job]]
+name = "job_844e80"
+ea = 0x00844E80
+size = 7888
+fp = 0xc144a6c46b720864
+ls_base = 0x1000
+
+[[job]]
+name = "job_84e500"
+ea = 0x0084E500
+size = 6480
+fp = 0xe7c9451016a3f0a8
+ls_base = 0x1000
+
+[[job]]
+name = "job_84b600"
+ea = 0x0084B600
+size = 6352
+fp = 0xe1845cea62cebd9e
+ls_base = 0x1000
