@@ -50,9 +50,14 @@ extern uint32_t ppu_vm_size;
 
 uint32_t ppu_load_elf(const char* path);
 void     ppu_recomp_register(void);
-/* Lifted SPU job-chain binaries (tools/lift_spu_jobs.py, spu_jobs.toml). Weak:
- * a build without the manifest links fine and this call becomes a no-op. */
-extern "C" void ben10_register_spu_jobs(void) __attribute__((weak));
+/* Lifted SPU job-chain binaries (tools/lift_spu_jobs.py, spu_jobs.toml). A weak
+ * no-op DEFINITION, not a weak declaration: on Darwin a weak declaration with
+ * no definition in a static link is "Undefined symbols" (see the LLE note
+ * below; measured 2026-09-26 with a fingerprint-mismatch build, where step 3c
+ * links no job object). The strong definition in the generated
+ * spu_jobs_register.c wins when the jobs are linked; otherwise every job-chain
+ * binary runs in the interpreter. */
+extern "C" __attribute__((weak)) void ben10_register_spu_jobs(void) {}
 int      ppu_run(uint32_t entry_opd, uint32_t stack_top);
 int      ppu_opd_resolve(uint32_t opd, uint32_t* code, uint32_t* toc);
 void     ps3_indirect_call(ppu_context* ctx);
@@ -461,7 +466,7 @@ int main(int argc, char** argv)
 
     /* Order matters, and matches the reference host. */
     ppu_recomp_register();   /* lifted function table -> address map          */
-    if (ben10_register_spu_jobs) ben10_register_spu_jobs();   /* lifted SPU job-chain binaries */
+    ben10_register_spu_jobs();                                /* lifted SPU job-chain binaries (no-op if none) */
     ppu_hle_init();          /* firmware import NID -> HLE handlers           */
     ppu_sysprx_register();   /* boot-critical CRT (sys_initialize_tls, ...)   */
     ppu_fs_register();       /* cellFs VFS over the real game directory       */

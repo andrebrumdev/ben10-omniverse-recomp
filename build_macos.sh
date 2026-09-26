@@ -161,15 +161,31 @@ done
 
 echo "=== 3c. lifted SPU jobs (spu_jobs.toml) ==="
 JOB_OBJS=()
-if [ -f "$HERE/spu_jobs.toml" ]; then
+JOB_MANIFEST="${JOB_MANIFEST:-$HERE/spu_jobs.toml}"   # override: tests of this step
+if [ -f "$JOB_MANIFEST" ]; then
     JOBDIR="$LIFT/spu_jobs"
-    "$PYBIN" "$PS3/tools/lift_spu_jobs.py" --manifest "$HERE/spu_jobs.toml" --elf "$HERE/EBOOT.ELF" \
-        --out "$JOBDIR" --prefix ben10 --first-image-id 16
-    for c in "$JOBDIR"/*/spu_recomp.c "$JOBDIR"/spu_jobs_register.c; do
-        clang -std=c11 -O2 $MCPU $LIFT_CFLAGS -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
-        JOB_OBJS+=("$c.o")
-    done
-    echo "  $(( ${#JOB_OBJS[@]} - 1 )) job(s) lifted"
+    # Start from an empty directory: only the jobs named in the manifest are
+    # compiled and linked (a job removed from the manifest must not survive in
+    # a stale subdirectory, and the count below must be the manifest's).
+    rm -rf "$JOBDIR"
+    lift_rc=0
+    "$PYBIN" "$PS3/tools/lift_spu_jobs.py" --manifest "$JOB_MANIFEST" --elf "$HERE/EBOOT.ELF" \
+        --out "$JOBDIR" --prefix ben10 --first-image-id 16 || lift_rc=$?
+    if [ "$lift_rc" -eq 2 ]; then
+        # Fingerprint mismatch: another game version. The weak
+        # ben10_register_spu_jobs covers the link; every job is interpreted.
+        echo "WARN: spu_jobs.toml does not match this EBOOT -- lifted jobs off (interpreter)"
+        JOB_OBJS=()
+    elif [ "$lift_rc" -ne 0 ]; then
+        echo "ERROR: lift_spu_jobs.py failed (exit $lift_rc)" >&2
+        exit "$lift_rc"
+    else
+        for c in "$JOBDIR"/*/spu_recomp.c "$JOBDIR"/spu_jobs_register.c; do
+            clang -std=c11 -O2 $MCPU $LIFT_CFLAGS -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
+            JOB_OBJS+=("$c.o")
+        done
+        echo "  $(( ${#JOB_OBJS[@]} - 1 )) job(s) lifted"
+    fi
 fi
 
 echo "=== 4. boot host -> .o ==="
