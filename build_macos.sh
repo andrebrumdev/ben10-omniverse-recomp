@@ -13,6 +13,18 @@
 # Usage: ./build_macos.sh [lift-dir]        (default: recomp_macos)
 #   LIFT_OPT=-O0..-O3 (default -O1)  HOST_OPT (default -O2)  OUT (default ./boot_ben10)
 #   FORCE_REBUILD_LIFT=1  rebuild every lift chunk
+#   LIFT_CFLAGS='...'  extra flags for lift chunks and lifted SPU jobs (PGO use: -fprofile-use=F)
+#   HOST_CFLAGS='...'  extra flags for runtime PPU sources (PGO gen: -DPS3_PGO_BUILD)
+#   LINK_CFLAGS='...'  extra flags on the final link (PGO gen: -fprofile-generate)
+#   LIFT_OBJ_TAG=tag   extra object suffix so PGO gen/use objects coexist with plain ones
+#
+# PGO (same recipe as games/gow2/build_macos.sh; measured NEUTRAL in fps on GoW2):
+#   1. LIFT_OBJ_TAG=pgogen LIFT_CFLAGS=-fprofile-generate HOST_CFLAGS=-DPS3_PGO_BUILD \
+#      LINK_CFLAGS=-fprofile-generate OUT=./boot_ben10_pgogen ./build_macos.sh
+#   2. BOOT_BIN=./boot_ben10_pgogen LLVM_PROFILE_FILE=pgo/ben10-%p.profraw PS3_PGO_WRITE_MS=60000 \
+#      ./run_ben10.sh   (the writer dumps the profile while the game runs; runs end in kill -9)
+#   3. xcrun llvm-profdata merge -o pgo/ben10.profdata pgo/*.profraw
+#   4. LIFT_OBJ_TAG=pgo LIFT_CFLAGS=-fprofile-use=$PWD/pgo/ben10.profdata ./build_macos.sh
 #
 # NB: OUT must not contain "boot_gow2" -- the GoW2 tooling kills any process
 # with that in its name.
@@ -33,6 +45,14 @@ LIFT_OPT="${LIFT_OPT:--O1}"
 HOST_OPT="${HOST_OPT:--O2}"
 MCPU="${PS3_MCPU--mcpu=apple-m1}"
 FORCE_REBUILD_LIFT="${FORCE_REBUILD_LIFT:-0}"
+LIFT_CFLAGS="${LIFT_CFLAGS:-}"
+HOST_CFLAGS="${HOST_CFLAGS:-}"
+LINK_CFLAGS="${LINK_CFLAGS:-}"
+LIFT_OBJ_TAG="${LIFT_OBJ_TAG:-}"
+case "$LIFT_OBJ_TAG" in
+    ""|[A-Za-z0-9]*) ;;
+    *) echo "LIFT_OBJ_TAG must be empty or start with [A-Za-z0-9] (got '$LIFT_OBJ_TAG')" >&2; exit 1 ;;
+esac
 export MCPU
 
 if [ ! -f "$LIFT/ppu_recomp.h" ]; then
@@ -58,7 +78,7 @@ INC=(-I "$LIFT"
 
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 JOBS=$(( JOBS > 6 ? 6 : JOBS ))   # each chunk peaks near 1 GB of compiler RSS
-OBJ_SUFFIX=".${LIFT_OPT#-O}.o"
+OBJ_SUFFIX=".${LIFT_OPT#-O}${LIFT_OBJ_TAG:+.$LIFT_OBJ_TAG}.o"
 
 echo "=== 1. lifted chunks -> .o  LIFT_OPT=$LIFT_OPT (-P $JOBS) ==="
 cd "$LIFT"
@@ -72,10 +92,10 @@ t0=$(date +%s)
         fi
     done
 } | xargs -P "$JOBS" -I {} sh -c \
-    'src="$1"; ps3="$2"; opt="$3"; suf="$4"
-     clang++ -std=c++20 "$opt" $MCPU -w -c -I . -I "$ps3/include" -I "$ps3/runtime/ppu" \
+    'src="$1"; ps3="$2"; opt="$3"; suf="$4"; extra="$5"
+     clang++ -std=c++20 "$opt" $MCPU $extra -w -c -I . -I "$ps3/include" -I "$ps3/runtime/ppu" \
          "$src" -o "$src$suf" 2> "$src.cclog"' \
-    _ {} "$PS3" "$LIFT_OPT" "$OBJ_SUFFIX"
+    _ {} "$PS3" "$LIFT_OPT" "$OBJ_SUFFIX" "$LIFT_CFLAGS"
 LIFT_OBJS=()
 for f in ppu_recomp_*.cpp ppu_stubs.cpp; do
     [ -f "$f" ] || continue
@@ -86,10 +106,10 @@ echo "  dur=$(( $(date +%s) - t0 ))s objs=${#LIFT_OBJS[@]} errors=$(cat ./*.cclo
 echo "=== 2. runtime PPU sources -> .o (HOST_OPT=$HOST_OPT) ==="
 cd "$HERE"
 for src in ppu_loader ppu_imports ppu_hle ppu_sysprx ppu_fs; do
-    clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" "$PS3/runtime/ppu/$src.cpp" -o "$LIFT/$src.o"
+    clang++ -std=c++20 $HOST_OPT $MCPU $HOST_CFLAGS -w -c "${INC[@]}" "$PS3/runtime/ppu/$src.cpp" -o "$LIFT/$src.o"
 done
 for src in ppu_icall_ascii ppu_vm_fast_policy ppu_p10_ctr; do
-    clang -std=c11 $HOST_OPT $MCPU -w -c "${INC[@]}" "$PS3/runtime/ppu/$src.c" -o "$LIFT/$src.o"
+    clang -std=c11 $HOST_OPT $MCPU $HOST_CFLAGS -w -c "${INC[@]}" "$PS3/runtime/ppu/$src.c" -o "$LIFT/$src.o"
 done
 
 echo "=== 3. HLE NID table -> .o ==="
@@ -146,7 +166,7 @@ if [ -f "$HERE/spu_jobs.toml" ]; then
     "$PYBIN" "$PS3/tools/lift_spu_jobs.py" --manifest "$HERE/spu_jobs.toml" --elf "$HERE/EBOOT.ELF" \
         --out "$JOBDIR" --prefix ben10 --first-image-id 16
     for c in "$JOBDIR"/*/spu_recomp.c "$JOBDIR"/spu_jobs_register.c; do
-        clang -std=c11 -O2 $MCPU -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
+        clang -std=c11 -O2 $MCPU $LIFT_CFLAGS -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
         JOB_OBJS+=("$c.o")
     done
     echo "  $(( ${#JOB_OBJS[@]} - 1 )) job(s) lifted"
@@ -167,7 +187,7 @@ fi
 if [ -d /opt/homebrew/lib ]; then
     VK_FLAGS="$VK_FLAGS -Wl,-rpath,/opt/homebrew/lib"
 fi
-clang++ -std=c++20 $HOST_OPT $MCPU \
+clang++ -std=c++20 $HOST_OPT $MCPU $LINK_CFLAGS \
     "${LIFT_OBJS[@]}" \
     "$LIFT"/ppu_loader.o "$LIFT"/ppu_imports.o "$LIFT"/ppu_hle.o \
     "$LIFT"/ppu_sysprx.o "$LIFT"/ppu_fs.o "$LIFT"/ppu_icall_ascii.o \
