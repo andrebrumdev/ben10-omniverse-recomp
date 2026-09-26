@@ -125,7 +125,11 @@ echo "=== 3b. lifted firmware modules (firmware/, optional) ==="
 # dev_flash PRXs lifted by tools/lift_prx.py + ppu_lifter.py (see notes/): lib<m>
 # in firmware/lib<m>/ (bind unit) and recomp_prx_<m>/ (lifted code). Only the
 # user's own firmware can produce these, so a module that is absent stays HLE.
-LLE_MODULES="${LLE_MODULES:-sail pamf dmux dmuxpamf adec atxdec vdec avcdec vpost apostsrc}"
+# vdec/avcdec are NOT in the default list (2026-09-26): the AVC movies decode through the HLE
+# cellVdec + VideoToolbox (ps3recomp a867b752); the firmware libavcdec ran as interpreted SPU
+# tasks and stalled movies for up to 2 minutes. Firmware path back:
+#   LLE_MODULES="sail pamf dmux dmuxpamf adec atxdec vdec avcdec vpost apostsrc" ./build_macos.sh
+LLE_MODULES="${LLE_MODULES:-sail pamf dmux dmuxpamf adec atxdec vpost apostsrc}"
 LLE_OBJS=()
 # Per-module -DPS3_LLE_HAVE_<M> for boot_macos.cpp: an absent module has no
 # lib<m>_bind.cpp anywhere in this link, so its g_lle_<m> symbol would be a
