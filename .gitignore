@@ -39,3 +39,6 @@ spu_tasks/
 
 # PGO profiles (regenerable)
 pgo/
+
+# ---- bench (saidas de medicao) ----
+bench/out/
