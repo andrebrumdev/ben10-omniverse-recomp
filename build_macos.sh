@@ -221,7 +221,7 @@ clang++ -std=c++20 $HOST_OPT $MCPU $LINK_CFLAGS \
     -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework VideoToolbox \
     -framework AudioToolbox -framework CoreAudio \
     -framework GameController -framework CoreHaptics \
-    $SDL_FLAGS $VK_FLAGS -lm \
+    $SDL_FLAGS $VK_FLAGS -lm -lz \
     -Wl,-stack_size,0x2000000 \
     -o "$OUT"
 
