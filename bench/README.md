@@ -14,6 +14,8 @@ intercalados, >= 2 corridas por braço, janelas por evento, build (rev + mtime) 
 | `s9b.pad` | `PS3_PAD_SCRIPT`: título -> NEW GAME -> Training Simulation 1 (ocioso depois de 100 s) |
 | `mk_combat_pad.py` / `s9b_combat.pad` | o mesmo até o nível + ciclo mover/atacar/pular de 100 s a 420 s (soak) |
 | `mk_reload_pad.py` / `s9b_reload.pad` | o mesmo até o nível + taps de CROSS + ciclos de recarga do nível pelo menu de pausa (START, DOWN x4, CROSS, CROSS, LEFT, CROSS = Select Level > Training Time > YES); `test_mk_reload_pad.py` valida a gramática e o ciclo offline |
+| `jcw_an.py <dir> <tag>...` | A/B do `PS3_JC_WORKERS`: fps/frametime do gameplay (t >= 130 s, draws>=100), `[JCPAR]` (jobs, tempo serial, `seg_wall_ms`), CPU por thread; uma linha por corrida |
+| `s9b_diff.pad` | o `s9b.pad` com os toques de CROSS repetidos a cada 7 s ate' 300 s: com `PS3_JC_DIFF=1` o jogo roda ~5 fps e o relogio do `s9b.pad` passaria do menu antes da hora |
 | `test_run_ben10_env.sh` | teste da receita de env do `run_ben10.sh` (binário falso que imprime o ambiente) |
 | `test_lp_an.py` | teste do analisador com log sintético: `python3 bench/test_lp_an.py` |
 | `fs_an.py <dir> <tag>... [--control tagA,tagB]` | checagem de VELOCIDADE e MARCO do passo de quadro (plano 60 fps, Tarefa 4): velocidade por janela de 30 s do gameplay, marco (`.ls` do nível) contra o controle OFF, fps médio, crash/hang |
@@ -77,3 +79,15 @@ Capturas do mesmo momento: `PS3_METAL_SHOW_DUMP_EVERY=300 PS3_METAL_SHOW_DUMP_AF
 `show_f<quadro>.bmp` no diretório de saída; use um `BENCH_OUT` por braço (os nomes colidem entre braços) e corridas separadas das
 de medida (a captura perturba o tempo de quadro). Pad ocioso: o momento é "`.ls` do nível + N s"; no pad de combate o estado do
 jogo diverge pela razão de velocidade, então só a renderização é comparável.
+
+## A/B do `PS3_JC_WORKERS` (job chain em N SPUs)
+
+- Corrida de medicao: `STOP_AFTER=400 CAP=215 EXTRA_TRACE="PS3_TRACE_JC_PAR=1" RECIPE_ENV="PS3_GIANT_HANDOFF=1 PS3_VM_FAST_MASK=0x7F" bench/run_lp.sh <tag> clean PS3_JC_WORKERS=<N>`
+  (janela de gameplay = t >= 130 s ate' o fim, ~85 s sem `sample`). Bracos intercalados (ABCCBA), >= 2 corridas por braco.
+- NUNCA `PS3_TRACE_JOBCHAIN=1` numa corrida de medicao: imprime uma linha por job e o `[JCPAR]` deixa de contar os jobs.
+  Serve para o `miss` (linha `[jobchain] stats`) e para a porta de correcao.
+- Porta de correcao: `PAD_FILE=bench/s9b_diff.pad STOP_AFTER=100 CAP=420 EXTRA_TRACE="PS3_TRACE_JOBCHAIN=1" ... PS3_JC_WORKERS=<N> PS3_JC_DIFF=1`;
+  passa com `div=0 atomic=0 fault=0 overflow=0` em todas as linhas `[jobchain] diff fp=...` e `miss=0`.
+- Regime: o fps do braco serial varia de 14 a 20 conforme a maquina (outras sessoes compilando); so' comparar bracos da mesma janela e
+  checar `load`/`top` do `.meta`. Controle de regressao: o binario antigo (`boot_ben10_arch`) e o novo com `PS3_JC_WORKERS=1` dao o mesmo
+  numero na maquina quieta (20 fps, p50 48 ms, 47 mil jobs/10 s).

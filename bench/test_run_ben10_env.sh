@@ -20,6 +20,10 @@ check "default recipe sets PS3_VM_FAST_MASK=0x7F" "PS3_VM_FAST_MASK=0x7F"
 check "override PS3_VM_FAST_MASK=0 passes through (A/B)" "PS3_VM_FAST_MASK=0" PS3_VM_FAST_MASK=0
 n=$(run PS3_VM_FAST_MASK=0 | grep -c '^PS3_VM_FAST_MASK=')
 if [ "$n" = 1 ]; then echo "ok   override leaves exactly one PS3_VM_FAST_MASK"; else echo "FAIL override leaves $n PS3_VM_FAST_MASK lines"; fail=1; fi
+check "default recipe sets PS3_JC_WORKERS=2" "PS3_JC_WORKERS=2"
+check "override PS3_JC_WORKERS=1 passes through (A/B, serial walker)" "PS3_JC_WORKERS=1" PS3_JC_WORKERS=1
+n=$(run PS3_JC_WORKERS=1 | grep -c '^PS3_JC_WORKERS=')
+if [ "$n" = 1 ]; then echo "ok   override leaves exactly one PS3_JC_WORKERS"; else echo "FAIL override leaves $n PS3_JC_WORKERS lines"; fail=1; fi
 check "HANDOFF kept alongside the mask" "PS3_GIANT_HANDOFF=1"
 check "base recipe kept (PS3_RSX_FIFO=1)" "PS3_RSX_FIFO=1"
 exit $fail

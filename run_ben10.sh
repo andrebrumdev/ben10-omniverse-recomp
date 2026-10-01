@@ -25,6 +25,17 @@
 #                        level load (cause unknown) -- not reproduced on this title (measured above);
 #                        a stall here: ./run_ben10.sh PS3_VM_FAST_MASK=0 (A/B override).
 #                        Evidence: docs/superpowers/plans/2026-09-30-ben10-pipeline-opportunities.md (ps3recomp).
+#   PS3_JC_WORKERS=2    the job chain runs the jobs between two barriers on 2 host "SPUs" (jm2 semantics,
+#                        libs/spurs/cellSpursJobChain.c; workers = min(N, chain maxContention 6, SPURS nSpus 5)).
+#                        Before: one walker thread ran every job serially (98% busy = the gameplay critical
+#                        path, 229 jobs/frame). Gameplay (Training Simulation 1, t>=130 s, 84-140 s windows,
+#                        interleaved, same binary): frametime p50 61 -> 46 ms pooled over 5 runs of
+#                        PS3_JC_WORKERS=2 (-25%), -18% in the two quiet-machine runs (48 -> 40 ms), fps median
+#                        16 -> 21; PS3_JC_DIFF=1 with 2 and with 3 workers: 0 divergences in ~180k jobs per
+#                        run; a 271 s run did not hang. 3 workers reach the title's ~30 fps (median 29, p50 34 ms)
+#                        for one more busy core: ./run_ben10.sh PS3_JC_WORKERS=3. Serial walker (old behaviour):
+#                        ./run_ben10.sh PS3_JC_WORKERS=1. Evidence: docs/superpowers/plans/2026-09-30-ben10-pipeline-opportunities.md
+#                        (ps3recomp, Tasks 3-4) and bench/README.md.
 #   PS3_DEV_FLASH=<dir>  host firmware tree for /dev_flash (read-only). Unset:
 #                        the RPCS3 install's dev_flash when present
 #                        ($HOME/Library/Application Support/rpcs3/dev_flash on
@@ -38,5 +49,5 @@ cd "$HERE"
 # export PS3_DEV_FLASH="$HOME/Library/Application Support/rpcs3/dev_flash"   # = default when unset
 exec env PS3_VFS_ROOT="$HERE/extracted/PS3_GAME/USRDIR" \
     PS3_RSX_FIFO=1 PS3_GCM_CB=1 PS3_LWMUTEX_REAL=1 PS3_GCM_REF_BUMP=0 \
-    PS3_SPU_TASK_INTERP=1 PS3_METAL_PER_DRAW_RT=1 PS3_VDEC_ASYNC=1 PS3_GIANT_HANDOFF=1 PS3_VM_FAST_MASK=0x7F \
+    PS3_SPU_TASK_INTERP=1 PS3_METAL_PER_DRAW_RT=1 PS3_VDEC_ASYNC=1 PS3_GIANT_HANDOFF=1 PS3_VM_FAST_MASK=0x7F PS3_JC_WORKERS=2 \
     "$@" "${BOOT_BIN:-./boot_ben10}" EBOOT.ELF
