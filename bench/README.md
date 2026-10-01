@@ -16,6 +16,8 @@ intercalados, >= 2 corridas por braço, janelas por evento, build (rev + mtime) 
 | `mk_reload_pad.py` / `s9b_reload.pad` | o mesmo até o nível + taps de CROSS + ciclos de recarga do nível pelo menu de pausa (START, DOWN x4, CROSS, CROSS, LEFT, CROSS = Select Level > Training Time > YES); `test_mk_reload_pad.py` valida a gramática e o ciclo offline |
 | `test_run_ben10_env.sh` | teste da receita de env do `run_ben10.sh` (binário falso que imprime o ambiente) |
 | `test_lp_an.py` | teste do analisador com log sintético: `python3 bench/test_lp_an.py` |
+| `fs_an.py <dir> <tag>... [--control tagA,tagB]` | checagem de VELOCIDADE e MARCO do passo de quadro (plano 60 fps, Tarefa 4): velocidade por janela de 30 s do gameplay, marco (`.ls` do nível) contra o controle OFF, fps médio, crash/hang |
+| `test_fs_an.py` | teste do `fs_an.py` com logs sintéticos (inclui mutações: tolerância, início da janela, ticks inferidos, tolerância do marco): `python3 bench/test_fs_an.py` |
 
 Variáveis do `run_lp.sh`: `BENCH_OUT`, `BIN`, `LOCK_DIR`, `PS3RECOMP`, `PAD_FILE`, `STOP_AFTER`
 (padrão 35 s depois do `.ls` do nível), `CAP` (padrão 175 s), `EXTRA_TRACE`, `RECIPE_ENV`.
@@ -39,3 +41,39 @@ O harness tem a receita base embutida (a do `run_ben10.sh` de 2026-09-30); vari�
   (fps 26 -> 10): segundos amostrados nunca entram em fps/ms, só em fatias.
 - Antes de medir: `cmake --build build-macos --target ps3recomp_runtime` no ps3recomp e
   `./build_macos.sh` no port.
+
+## Checagem de velocidade e marco do nível (passo de quadro, `PS3_BEN10_FPS`)
+
+O fps sozinho engana neste jogo: a lógica avança em passo fixo por quadro (ticks de 1/600 s; 20 no modo 0 de 30 Hz, 10 no
+modo 1 de 60 Hz), então a velocidade do jogo é `fps x ticks / 600`. Abaixo do alvo (29,97 no modo 0, 59,94 no modo 1) o jogo
+roda em câmera lenta, e no modo 1 a metade da velocidade do modo 0 para o mesmo fps. Por isso toda comparação de `PS3_BEN10_FPS`
+tem dois critérios além do fps.
+
+Corrida (uma por braço, intercaladas, >= 2 por braço e por pad, regime registrado no `.meta`):
+
+    BIN=boot_ben10_fs4 CAP=420 STOP_AFTER=240 RECIPE_ENV="PS3_GIANT_HANDOFF=1 PS3_VM_FAST_MASK=0x7F" \
+      PAD_FILE=bench/s9b.pad bench/run_lp.sh ioff1 clean                       # controle (PS3_BEN10_FPS desligado)
+      PAD_FILE=bench/s9b.pad bench/run_lp.sh iauto1 clean PS3_BEN10_FPS=auto   # braço sob teste
+    python3 bench/fs_an.py <BENCH_OUT> iauto1 iauto2 --control ioff1,ioff2
+
+Janela de gameplay = `.ls` do nível + 20 s -> último `[FPS]`, cortada em subjanelas de 30 s. Critérios (plano, Tarefa 4):
+
+| critério | como é medido | passa se |
+|---|---|---|
+| velocidade | por subjanela: média de `win_speed` do `[FRAMESTEP]` (ticks reais do jogo). Braço OFF não imprime nada: velocidade INFERIDA = `fps x 20 / 600` (20 ticks por quadro no modo 0, verificado em todos os quadros pelo log de ticks da Tarefa 1; o braço `PS3_BEN10_FPS=30` mede o mesmo valor com o observador e confere) | 1,00 +- 0,02 em TODAS as subjanelas |
+| marco | `.ls` do nível (primeiro `LoadingScreens/*.ls` com t > 55 s, relógio do log) contra a média dos controles OFF | dentro de 1 s; o piso de ruído OFF contra OFF vai junto (`noise_floor_s`) |
+| fps | média por segundo na janela de gameplay (não a mediana) | >= a média do controle |
+| estabilidade | `[CRASH]`, `alive_at_stop`, última linha do log | sem crash, sem saída antecipada |
+
+Leitura honesta (aprendida na Tarefa 4): a velocidade 1,00 exige que a MÁQUINA segure o período do limitador no gameplay. Com o
+Training Simulation 1 a ~20 fps (regime carregado, N=1) o controle OFF também reprova (0,63-0,70), então o critério literal
+é regime-limitado e a razão `speed_ratio` (braço / controle) é o número que separa defeito do hook de limite da máquina. O
+marco do nível depende do ritmo das cenas do front-end contra o relógio de parede do pad: os controles OFF já divergem entre
+si (`.ls` do nível em 63,3 a 77,3 s em 7 corridas OFF/30 do mesmo binário, mediana 70,3), então confira `noise_floor_s` antes de
+culpar o braço. Capturas no mesmo instante de PAREDE só são comparáveis se a velocidade do jogo for a mesma: a meia velocidade
+põe a cena de abertura do nível (diálogo, corrida da câmera) onde o controle já está no tutorial.
+
+Capturas do mesmo momento: `PS3_METAL_SHOW_DUMP_EVERY=300 PS3_METAL_SHOW_DUMP_AFTER_S=100` (diagnóstico, desligado por padrão) grava
+`show_f<quadro>.bmp` no diretório de saída; use um `BENCH_OUT` por braço (os nomes colidem entre braços) e corridas separadas das
+de medida (a captura perturba o tempo de quadro). Pad ocioso: o momento é "`.ls` do nível + N s"; no pad de combate o estado do
+jogo diverge pela razão de velocidade, então só a renderização é comparável.
