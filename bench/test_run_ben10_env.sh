@@ -25,5 +25,5 @@ check "override PS3_JC_WORKERS=1 passes through (A/B, serial walker)" "PS3_JC_WO
 n=$(run PS3_JC_WORKERS=1 | grep -c '^PS3_JC_WORKERS=')
 if [ "$n" = 1 ]; then echo "ok   override leaves exactly one PS3_JC_WORKERS"; else echo "FAIL override leaves $n PS3_JC_WORKERS lines"; fail=1; fi
 check "HANDOFF kept alongside the mask" "PS3_GIANT_HANDOFF=1"
-check "base recipe kept (PS3_RSX_FIFO=1)" "PS3_RSX_FIFO=1"
+check "base recipe kept (PS3_LWMUTEX_REAL=1)" "PS3_LWMUTEX_REAL=1"
 exit $fail

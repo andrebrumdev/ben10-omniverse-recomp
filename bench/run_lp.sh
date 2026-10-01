@@ -43,8 +43,8 @@ if pmset -g batt | grep -q "Battery Power"; then echo "on battery, abort" > "$P/
 PAD_SCRIPT="$(cat "$PAD_FILE")"
 cd "$P"
 ( env PS3_VFS_ROOT="$B/extracted/PS3_GAME/USRDIR" \
-    PS3_RSX_FIFO=1 PS3_GCM_CB=1 PS3_LWMUTEX_REAL=1 PS3_GCM_REF_BUMP=0 \
-    PS3_SPU_TASK_INTERP=1 PS3_METAL_PER_DRAW_RT=1 PS3_VDEC_ASYNC=1 \
+    PS3_LWMUTEX_REAL=1 PS3_GCM_REF_BUMP=0 \
+    PS3_SPU_TASK_INTERP=1 \
     PS3_MUTE=1 PS3_WINDOW_HIDDEN=1 PS3_TRACE_AUDIO=1 PS3_TRACE_FPS=1 PS3_TRACE_GIANTSTAT=1 PS3_TRACE_FRAMETIME=1 \
     PS3_PAD_AUTOSTART=1 PS3_PAD_SCRIPT="$PAD_SCRIPT" $EXTRA_TRACE $RECIPE_ENV \
     "$@" "$B/$BIN" "$B/EBOOT.ELF" 2>&1 | perl -MTime::HiRes=time -ne 'BEGIN{$|=1;$t0=time; printf("T0 %.3f\n",$t0)} printf("%8.2f %s",time-$t0,$_)' > "$P/lp_$TAG.log" ) &
