@@ -26,6 +26,10 @@
 #   3. xcrun llvm-profdata merge -o pgo/ben10.profdata pgo/*.profraw
 #   4. LIFT_OBJ_TAG=pgo LIFT_CFLAGS=-fprofile-use=$PWD/pgo/ben10.profdata ./build_macos.sh
 #
+# host/*.c (except test_*.c) are the port's own pure host units (e.g. host/ben10_framestep.c, the
+# frame-step policy of the 60 fps plan); they are compiled and linked into the binary.
+# Unit tests: clang -std=c11 -Wall -Wextra -Ihost host/test_ben10_framestep.c host/ben10_framestep.c -lm
+#
 # NB: OUT must not contain "boot_gow2" -- the GoW2 tooling kills any process
 # with that in its name.
 set -euo pipefail
@@ -196,6 +200,17 @@ echo "=== 4. boot host -> .o ==="
 clang++ -std=c++20 $HOST_OPT $MCPU -w -c "${INC[@]}" "${LLE_HAVE_DEFS[@]:-}" \
     "$HERE/boot_macos.cpp" -o "$LIFT/boot_macos.o"
 
+echo "=== 4b. port host units (host/*.c) -> .o ==="
+HOST_UNIT_OBJS=()
+for c in "$HERE"/host/*.c; do
+    [ -f "$c" ] || continue
+    case "$(basename "$c")" in test_*) continue ;; esac
+    o="$LIFT/host_$(basename "${c%.c}").o"
+    clang -std=c11 $HOST_OPT $MCPU $HOST_CFLAGS -Wall -Wextra -c "${INC[@]}" -I "$HERE/host" "$c" -o "$o"
+    HOST_UNIT_OBJS+=("$o")
+done
+echo "  ${#HOST_UNIT_OBJS[@]} host unit(s)"
+
 echo "=== 5. link ==="
 SDL_FLAGS="${SDL_FLAGS-$(pkg-config --libs sdl2)}"
 VK_FLAGS=""
@@ -215,6 +230,7 @@ clang++ -std=c++20 $HOST_OPT $MCPU $LINK_CFLAGS \
     "$LIFT"/ppu_hle_nids.o "$LIFT"/boot_macos.o \
     ${LLE_OBJS[@]+"${LLE_OBJS[@]}"} \
     ${JOB_OBJS[@]+"${JOB_OBJS[@]}"} \
+    ${HOST_UNIT_OBJS[@]+"${HOST_UNIT_OBJS[@]}"} \
     "$RUNTIME_LIB" \
     -framework Metal -framework MetalFX -framework MetalPerformanceShaders -framework QuartzCore -framework Foundation \
     -framework Cocoa -framework CoreText \
