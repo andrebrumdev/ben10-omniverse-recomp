@@ -42,3 +42,9 @@ pgo/
 
 # ---- bench (saidas de medicao) ----
 bench/out/
+
+# ---- Dumps e residuos de diagnostico na raiz (regeneraveis; PS3_METAL_SHOW_DUMP_EVERY, runs) ----
+show_f*.bmp
+showtex_*.bmp
+*.pid
+run_sig_timeline.txt
