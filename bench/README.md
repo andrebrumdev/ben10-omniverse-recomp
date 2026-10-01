@@ -13,6 +13,8 @@ intercalados, >= 2 corridas por braço, janelas por evento, build (rev + mtime) 
 | `thrmon.c` | `thrmon <pid> [ms]`: CPU por thread, prioridade e fatia de P-cores (compilado sob demanda pelo `run_lp.sh`) |
 | `s9b.pad` | `PS3_PAD_SCRIPT`: título -> NEW GAME -> Training Simulation 1 (ocioso depois de 100 s) |
 | `mk_combat_pad.py` / `s9b_combat.pad` | o mesmo até o nível + ciclo mover/atacar/pular de 100 s a 420 s (soak) |
+| `mk_reload_pad.py` / `s9b_reload.pad` | o mesmo até o nível + taps de CROSS + ciclos de recarga do nível pelo menu de pausa (START, DOWN x4, CROSS, CROSS, LEFT, CROSS = Select Level > Training Time > YES); `test_mk_reload_pad.py` valida a gramática e o ciclo offline |
+| `test_run_ben10_env.sh` | teste da receita de env do `run_ben10.sh` (binário falso que imprime o ambiente) |
 | `test_lp_an.py` | teste do analisador com log sintético: `python3 bench/test_lp_an.py` |
 
 Variáveis do `run_lp.sh`: `BENCH_OUT`, `BIN`, `LOCK_DIR`, `PS3RECOMP`, `PAD_FILE`, `STOP_AFTER`

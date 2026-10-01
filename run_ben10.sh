@@ -16,6 +16,15 @@
 #                        (skips on loading screens 14% -> 0%; approximates lv2's 2 HW threads + priority
 #                        run queue). Measured in docs/superpowers/plans/2026-09-30-ben10-pipeline-opportunities.md
 #                        (ps3recomp). A/B override: ./run_ben10.sh PS3_GIANT_HANDOFF=0
+#   PS3_VM_FAST_MASK=0x7F  every vm_read*/vm_write* accessor takes the fast path from boot
+#                        (runtime/ppu/ppu_loader.cpp:1636; it keeps the giant-lock preempt, OOB and
+#                        reservation steps and skips the gated probes). Level load 8.3 s -> 5.6 s
+#                        (median of 3 interleaved pairs, -33 %), loader thread CPU -45..-53 %, skips stay 0.
+#                        Soaked 631 s with 3 reloads of the level through the pause menu (pause -> Select
+#                        Level -> YES; bench/mk_reload_pad.py): no stall. GoW2 saw the same mask stall its
+#                        level load (cause unknown) -- not reproduced on this title (measured above);
+#                        a stall here: ./run_ben10.sh PS3_VM_FAST_MASK=0 (A/B override).
+#                        Evidence: docs/superpowers/plans/2026-09-30-ben10-pipeline-opportunities.md (ps3recomp).
 #   PS3_DEV_FLASH=<dir>  host firmware tree for /dev_flash (read-only). Unset:
 #                        the RPCS3 install's dev_flash when present
 #                        ($HOME/Library/Application Support/rpcs3/dev_flash on
@@ -29,5 +38,5 @@ cd "$HERE"
 # export PS3_DEV_FLASH="$HOME/Library/Application Support/rpcs3/dev_flash"   # = default when unset
 exec env PS3_VFS_ROOT="$HERE/extracted/PS3_GAME/USRDIR" \
     PS3_RSX_FIFO=1 PS3_GCM_CB=1 PS3_LWMUTEX_REAL=1 PS3_GCM_REF_BUMP=0 \
-    PS3_SPU_TASK_INTERP=1 PS3_METAL_PER_DRAW_RT=1 PS3_VDEC_ASYNC=1 PS3_GIANT_HANDOFF=1 \
+    PS3_SPU_TASK_INTERP=1 PS3_METAL_PER_DRAW_RT=1 PS3_VDEC_ASYNC=1 PS3_GIANT_HANDOFF=1 PS3_VM_FAST_MASK=0x7F \
     "$@" "${BOOT_BIN:-./boot_ben10}" EBOOT.ELF
