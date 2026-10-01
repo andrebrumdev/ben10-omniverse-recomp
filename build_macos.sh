@@ -9,6 +9,8 @@
 #   python3 ../ps3recomp/tools/ppu_lifter.py EBOOT.ELF --functions functions.json -o recomp_macos -j 8
 # The 60 fps plan's lift (mid-asm hooks declared in recomp.toml; bodies in host/ben10_framestep_hook.cpp,
 # no-ops without PS3_BEN10_FPS) is the same command plus --config and another output directory:
+#   mkdir -p recomp_macos_fs          (the lifter does NOT create the output directory: it lifts for
+#                                      ~1.5 min and then fails writing the first chunk)
 #   python3 ../ps3recomp/tools/ppu_lifter.py EBOOT.ELF --functions functions.json -o recomp_macos_fs -j 6 \
 #       --config recomp.toml          (recomp.toml [main].out_directory = recomp_macos_fs)
 #   ./build_macos.sh recomp_macos_fs

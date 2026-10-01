@@ -48,3 +48,37 @@ gameplay, cutscenes, other levels; no GoW2 smoke needed (ps3recomp untouched).
 
 Reproduce: `python3 ../ps3recomp/tools/ppu_lifter.py EBOOT.ELF --functions functions.json -o recomp_macos_fs -j 6 --config recomp.toml`,
 `OUT=$PWD/boot_ben10_fs3 ./build_macos.sh recomp_macos_fs`, `bench/run_lp.sh <tag> clean [PS3_BEN10_FPS=60|auto]` with `BIN=boot_ben10_fs3 CAP=75`.
+
+## Revisão adversarial (2026-09-30, ps3recomp 5ce9f15d, port b0fad92 + o commit de correções)
+
+Verificado por medição:
+- Reprodutibilidade do lift: o comando documentado (`mkdir -p` + `ppu_lifter.py ... --config recomp.toml`) num diretório novo reproduz
+  `recomp_macos_fs/ppu_recomp_*.cpp` e `ppu_recomp.h` byte a byte (22 chunks, cmp). O lifter NÃO cria o diretório de saída (falha ao gravar
+  depois de ~1,5 min): o `mkdir -p` entrou no cabeçalho do build_macos.sh.
+- PS3_BEN10_FPS desligado = código do jogo idêntico: removendo as 7 linhas `gow2_midasm_Ben10*(ctx);` do lift com hooks, o corpo de todas as
+  funções (12 720 404 linhas) é igual ao de `recomp_macos/` (só mudam o comentário `lifter-rev`, a declaração dos hooks e os cortes de chunk).
+  Em tempo de execução: todo hook sai na primeira linha sem tocar `ctx` nem imprimir (teste `host/test_ben10_framestep_hook.cpp`, 1,3 s de quadros
+  simulados, `memcmp` do `ppu_context` inteiro + stderr vazio).
+- Registradores: o hook NÃO chama o setter do jogo (o desvio da Tarefa 3 acima), então não há save/restore a verificar; o que existe é uma única escrita
+  (r3/r0 nos hooks de modo) e nenhuma nos hooks de observação. O teste de hook compara o contexto inteiro (GPR/FPR/CR/LR/CTR/XER) e a mutação
+  "força_modo também zera o registrador seguinte" e "FrameStep escreve r3" são pegas.
+- Tempo: `now_ms()` é `clock_gettime(CLOCK_MONOTONIC)` direto; `PS3_EXP_TIMESCALE` só escala `mftb`/`sys_time_*` do guest (sys_timer.c), então
+  game_s/wall_s usa parede real.
+- Cobertura do setter: só o caminho r4<2 e r4>=5 de func_000583D8 passa por 0x583E4; r4=2 lê `0x1C` e r4=3/4 lê `0x20` (não sobrescritos). Os três
+  chamadores observados usam r4=1.
+
+Defeitos corrigidos nesta revisão:
+1. Os hooks de observação (limitador, passo de quadro) rodavam sem exclusão: nada provava que só a thread do laço de quadros os alcança. Agora
+   rodam sob um mutex que nunca cobre acesso `vm_*` (o `vm_read32` pode ceder o giant lock: segurar o mutex ali daria deadlock com uma segunda
+   thread) e uma segunda thread é registrada uma vez; os hooks de modo leem a decisão por um espelho atômico. (`<atomic>` conflita com o
+   `<stdatomic.h>` do runtime: builtins `__atomic_*`.)
+2. Os testes da política deixavam sobreviver 4 mutações: o arredondamento do acumulador P (floor em vez de round), o retorno/contabilidade de
+   `ben10_fs_frame` na política M, o teto `work <= wall` do observador e a fórmula de `win_speed`. Testes novos os pegam (todas as 4 mutações agora
+   falham). Mutação restante sem teste: a guarda `m_flip_allowed` (equivalente enquanto os limiares do histerese a implicam; o comentário do código diz isso).
+3. Não havia teste dos hooks em si: `host/test_ben10_framestep_hook.cpp` (um processo filho por política: unset/30/60/auto).
+
+Sanidade em execução depois das correções (binário `boot_ben10_fsrev`, link de 23:42:54, lift `recomp_macos_fs` sem alteração; ps3recomp 5ce9f15d,
+lib 21:21:47; porta b0fad92 + correções não commitadas na hora da corrida; AC, hidden + muted, CAP 60 s, `bench/run_lp.sh clean`, 1 corrida por braço,
+máquina carregada como antes, números de fps não comparáveis entre regimes): sem `PS3_BEN10_FPS` 0 linhas `[FRAMESTEP]`; com `60` 66 linhas,
+setter 0->1, `win_fps=59.9`, `win_speed=0.998`, k1 = 100 % dos 3169 quadros, nenhum aviso de segunda thread. Não é medição de desempenho nem
+substitui a Tarefa 4 (jogabilidade).

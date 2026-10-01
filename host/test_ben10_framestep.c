@@ -85,6 +85,28 @@ static void test_p_basic(void)
     CHECK(isfinite(st.debt));
 }
 
+/* The accumulator ROUNDS (half up): after paying, the debt stays within [-5, +5) ticks, so
+ * the played ticks track the wall time within 5 ticks at every frame (a floor would let the
+ * debt sit in [0, 10) and trail by up to 10). */
+static void test_p_rounding(void)
+{
+    ben10_fs st;
+    ben10_fs_init(&st, BEN10_FS_AUTO_P);
+    CHECK(ben10_fs_frame(&st, 26.0, -1) == 20);             /* 15.6 ticks: rounds up to 2 quanta */
+    ben10_fs_init(&st, BEN10_FS_AUTO_P);
+    CHECK(ben10_fs_frame(&st, 24.0, -1) == 10);             /* 14.4 ticks: rounds down to 1 quantum */
+    uint32_t r = 4242;
+    double wall = 0;
+    ben10_fs_init(&st, BEN10_FS_AUTO_P);
+    for (int i = 0; i < 5000; i++) {
+        r = r * 1664525u + 1013904223u;
+        double w = 17.0 + (double)((r >> 8) % 2800) / 100.0;  /* 17..45 ms: never clamped */
+        wall += w;
+        (void)ben10_fs_frame(&st, w, -1);
+        CHECK(fabs((double)st.ticks - wall * 0.6) <= 5.0 + 1e-6);
+    }
+}
+
 static void test_p_longrun(void)
 {
     /* alternating 16.7 / 25 ms: sum(ticks)/600 within +-10 ticks of sum(wall) */
@@ -160,6 +182,24 @@ static void test_m_promote(void)
     ben10_fs_init(&st, BEN10_FS_AUTO_M);
     for (int i = 0; i < 40; i++) mstep(&st, 33.3, 16.0);
     CHECK(ben10_fs_game_mode(&st) == 1);
+}
+
+/* What ben10_fs_frame RETURNS and accounts under M is the step of the decision in force. */
+static void test_m_returns_and_accounting(void)
+{
+    ben10_fs st;
+    ben10_fs_init(&st, BEN10_FS_AUTO_M);
+    uint64_t want_ticks = 0, k1 = 0, k2 = 0;
+    for (int i = 0; i < 80; i++) {
+        uint32_t t = mstep(&st, 33.3, 12.0);
+        uint32_t expect = ben10_fs_game_mode(&st) ? 10u : 20u;   /* decision AFTER this frame */
+        CHECK(t == expect && t == ben10_fs_ticks(&st));
+        want_ticks += t;
+        if (t == 10) k1++; else k2++;
+    }
+    CHECK(st.frames == 80 && st.ticks == want_ticks);
+    CHECK(st.hist[1] == k1 && st.hist[2] == k2 && st.hist[3] == 0 && k1 > 0 && k2 > 0);
+    CHECK(fabs(st.wall_ms - 80 * 33.3) < 1e-6);
 }
 
 static void test_m_no_promote(void)
@@ -343,6 +383,17 @@ static void test_obs_pairing(void)
     CHECK(wall == 10000.0);
 }
 
+static void test_obs_work_never_above_wall(void)
+{
+    ben10_fs_obs o;
+    ben10_fs_obs_init(&o);
+    double wall, work;
+    CHECK(ben10_fs_obs_frame_at(&o, 1000.0, 10, &wall, &work) == 0);
+    ben10_fs_obs_limiter(&o, 1030.0);                       /* later than the next frame hook */
+    CHECK(ben10_fs_obs_frame_at(&o, 1016.7, 10, &wall, &work) == 1);
+    CHECK(fabs(wall - 16.7) < 1e-9 && work <= wall + 1e-12 && fabs(work - wall) < 1e-9);
+}
+
 static void test_obs_window_and_speed(void)
 {
     ben10_fs_obs o;
@@ -396,6 +447,7 @@ static void test_obs_format(void)
     CHECK(strstr(buf, "frames=60") != NULL);
     CHECK(strstr(buf, "ticks=600") != NULL);
     CHECK(strstr(buf, "win_fps=59.9") != NULL);
+    CHECK(strstr(buf, "win_speed=0.999") != NULL);       /* 600 ticks / 1.00098 s, the window's own */
     CHECK(strstr(buf, "game_s/wall_s=0.999") != NULL);   /* 600 ticks / 1.00098 s */
     CHECK(strstr(buf, "hist k1/k2/k3/other=60/0/0/0") != NULL);
     ben10_fs_obs_format(&o, &st, -1, buf, sizeof buf);
@@ -407,9 +459,11 @@ int main(void)
     test_parse_and_off();
     test_fixed();
     test_p_basic();
+    test_p_rounding();
     test_p_longrun();
     test_p_drift_at_game_period();
     test_m_promote();
+    test_m_returns_and_accounting();
     test_m_no_promote();
     test_m_demote();
     test_m_slow_frames_before_flip_dont_count();
@@ -417,6 +471,7 @@ int main(void)
     test_m_demote_blocked_by_rate();
     test_format();
     test_obs_pairing();
+    test_obs_work_never_above_wall();
     test_obs_window_and_speed();
     test_obs_format();
     printf("%s: %d checks, %d failed\n", g_fail ? "FAIL" : "PASS", g_checks, g_fail);

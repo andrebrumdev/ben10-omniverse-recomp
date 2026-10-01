@@ -30,6 +30,7 @@
 #include "ppu_context.h"
 #include "ppu_memory.h"   /* vm_read32 (static inline) */
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -46,10 +47,23 @@ struct State {
     ben10_fs     fs;
     ben10_fs_obs obs;
     int          active;
-    State() {
+    /* The policy and the observer are single-threaded units, fed from the game's frame loop.
+     * Nothing proves statically that no other guest thread reaches an observing hook, so they run
+     * under a mutex (never held across a guest call or a vm_* access: the bodies call no guest code,
+     * so they cannot re-enter) and a call from a second thread is logged once; its frames are still accounted
+     * (dropping them could silence the real frame loop if the wrong thread arrived first). The
+     * setter hooks run wherever the game calls its setter: they read the decision through an
+     * atomic mirror, published by the observing hook. */
+    int               decision;       /* __atomic_* builtins: <atomic> clashes with the runtime's <stdatomic.h> */
+    pthread_mutex_t   mu;
+    int               owner_set;
+    pthread_t         owner;
+    int               foreign_calls;
+    State() : decision(-1), mu(PTHREAD_MUTEX_INITIALIZER), owner_set(0), owner(), foreign_calls(0) {
         ben10_fs_init(&fs, ben10_fs_policy_from_env());
         ben10_fs_obs_init(&obs);
         active = ben10_fs_active(&fs);
+        __atomic_store_n(&decision, ben10_fs_game_mode(&fs), __ATOMIC_RELAXED);
         if (active) {
             const char *e = getenv("PS3_BEN10_FPS");
             fprintf(stderr, "[FRAMESTEP] enabled PS3_BEN10_FPS=%s decision_mode=%d\n",
@@ -71,6 +85,22 @@ double now_ms()
     return (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1e6;
 }
 
+/* Notes the first thread that reached an observing hook; logs once when another one does. Called
+ * with s.mu held. */
+void note_thread(State &s)
+{
+    pthread_t me = pthread_self();
+    if (!s.owner_set) { s.owner = me; s.owner_set = 1; return; }
+    if (!pthread_equal(s.owner, me) && s.foreign_calls++ == 0)
+        fprintf(stderr, "[FRAMESTEP] observing hook reached from a second thread (accounted anyway)\n");
+}
+
+struct Lock {
+    State &s;
+    explicit Lock(State &st) : s(st) { pthread_mutex_lock(&s.mu); note_thread(s); }
+    ~Lock() { pthread_mutex_unlock(&s.mu); }
+};
+
 /* The game's mode word as the setters stored it: [[TOC-0x7B94]+0x378] (0x901778 in this boot).
  * -1 when the pointer is not there. Logging only. */
 int game_mode_word(ppu_context *ctx)
@@ -83,7 +113,7 @@ int game_mode_word(ppu_context *ctx)
 void force_mode(const char *site, uint64_t *reg)
 {
     State &s = S();
-    int want = ben10_fs_game_mode(&s.fs);
+    int want = __atomic_load_n(&s.decision, __ATOMIC_RELAXED);
     if (want < 0) return;
     fprintf(stderr, "[FRAMESTEP] setter %s: game mode word %d -> %d\n", site,
             (int)(int32_t)*reg, want);
@@ -114,6 +144,7 @@ B10_USED void gow2_midasm_Ben10LimiterEnter(ppu_context *ctx)
     (void)ctx;
     State &s = S();
     if (!s.active) return;
+    Lock lk(s);
     ben10_fs_obs_limiter(&s.obs, now_ms());
 }
 
@@ -122,14 +153,21 @@ B10_USED void gow2_midasm_Ben10FrameStep(ppu_context *ctx)
 {
     State &s = S();
     if (!s.active) return;
+    /* vm_read32 polls the giant-lock preemption and may yield it: never call it with s.mu held
+     * (a second thread blocking on s.mu while holding the giant lock would deadlock the yielder). */
+    int mode_word = game_mode_word(ctx);
+    uint32_t ticks = (uint32_t)ctx->gpr[3];
+    Lock lk(s);
     double t = now_ms();
     double wall = 0.0, work = 0.0;
-    if (ben10_fs_obs_frame_at(&s.obs, t, (uint32_t)ctx->gpr[3], &wall, &work))
+    if (ben10_fs_obs_frame_at(&s.obs, t, ticks, &wall, &work)) {
         ben10_fs_frame(&s.fs, wall, work);
+        __atomic_store_n(&s.decision, ben10_fs_game_mode(&s.fs), __ATOMIC_RELAXED);
+    }
     if (ben10_fs_obs_window_due(&s.obs, t)) {
         ben10_fs_obs_window_close(&s.obs, t);
         char buf[400];
-        ben10_fs_obs_format(&s.obs, &s.fs, game_mode_word(ctx), buf, sizeof buf);
+        ben10_fs_obs_format(&s.obs, &s.fs, mode_word, buf, sizeof buf);
         fprintf(stderr, "%s\n", buf);
     }
 }
