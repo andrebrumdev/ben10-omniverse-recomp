@@ -20,6 +20,9 @@ intercalados, >= 2 corridas por braço, janelas por evento, build (rev + mtime) 
 | `test_lp_an.py` | teste do analisador com log sintético: `python3 bench/test_lp_an.py` |
 | `fs_an.py <dir> <tag>... [--control tagA,tagB]` | checagem de VELOCIDADE e MARCO do passo de quadro (plano 60 fps, Tarefa 4): velocidade por janela de 30 s do gameplay, marco (`.ls` do nível) contra o controle OFF, fps médio, crash/hang |
 | `test_fs_an.py` | teste do `fs_an.py` com logs sintéticos (inclui mutações: tolerância, início da janela, ticks inferidos, tolerância do marco): `python3 bench/test_fs_an.py` |
+| `t5_an.py <dir> <tag>...` | A/B do `PS3_JC_WORKERS` no modo de 60 Hz (plano 60 fps, Tarefa 5): por corrida, fps médio (média por segundo), p50/p95/p99 do FRAMETIME, us/job do 844e80, parede do chain e soma dos jobs por quadro, hold/wait da giant por quadro, decode e GPU, % de áudio pulado, velocidade e `mode_word` do `[FRAMESTEP]`, fatia de P-cores, regime (`<tag>.reg`) e a linha `N job workers` |
+| `t5_table.py <dir> [--exclude a,b]` | tabela por braço (média [mín-máx]) e por corrida em cima do `t5_an.py`, com a coluna `agree` (corridas do braço discordam > 10% em fps = precisa de mais uma) |
+| `test_t5_an.py` | teste do `t5_an.py` com log sintético (média x mediana, por quadro, janela do JCPAR, workers, serial, regime): `python3 bench/test_t5_an.py` |
 
 Variáveis do `run_lp.sh`: `BENCH_OUT`, `BIN`, `LOCK_DIR`, `PS3RECOMP`, `PAD_FILE`, `STOP_AFTER`
 (padrão 35 s depois do `.ls` do nível), `CAP` (padrão 175 s), `EXTRA_TRACE`, `RECIPE_ENV`.
@@ -110,3 +113,12 @@ Corrida nova: `PS3_JC_WORKERS=2` + pad `s9b_reload.pad`, 629 s, 2 recargas do n�
 deslizou), sem crash/LONG-WAIT/ICALL-BAD, nenhum segundo parado (intervalo máximo entre `[FPS]` 1,04 s), fps 28 no fim.
 Para voltar ao áudio limpo: `./run_ben10.sh PS3_JC_WORKERS=1`.
 
+
+## A/B de workers no modo de 60 Hz do jogo (Tarefa 5 do plano 60 fps)
+
+Receita: `PS3_BEN10_FPS=60` (a velocidade do jogo é irrelevante, o fps mede a capacidade da máquina), `PS3_JC_WORKERS=N`,
+`EXTRA_TRACE="PS3_TRACE_JC_PAR=1"`, `RECIPE_ENV="PS3_GIANT_HANDOFF=1 PS3_VM_FAST_MASK=0x7F"`, `PAD_FILE=bench/s9b.pad`, `STOP_AFTER=265 CAP=450`
+(janela de gameplay = `.ls` do nível + 20 s -> fim, ~240 s). Braços intercalados N1 N3 N5 N2 | N2 N5 N3 N1; `python3 bench/t5_table.py <dir>`.
+Cada log de N >= 2 precisa ter `N job workers (requested N, maxContention 6, nSpus 5)` (o bug antigo do serial silencioso). Amostre o regime
+por corrida com `top -l 2` (instantâneo): o `ps %cpu` é uma média com decaimento e acusa rajadas de minutos atrás. Resultado e leitura:
+`notes/2026-10-xx-task5-workers-60hz.md`.
