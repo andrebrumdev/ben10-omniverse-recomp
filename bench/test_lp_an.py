@@ -44,6 +44,19 @@ class T(unittest.TestCase):
         self.assertEqual(r["load_gmaxwait_med"], 20.0)   # median of 10,20,30,40,5
         self.assertEqual(r["load_gmaxwait"], 40.0)
 
+    def test_hub_open_is_not_the_level_and_has_own_skip_window(self):
+        """A hub .ls at t=30 (10<t<=55) must not be taken as the level load (t>55) and has a 5 s skip window."""
+        text = synth()
+        extra = ["   30.10 [fs] open '/dev_bdvd/PS3_GAME/USRDIR/LoadingScreens/hub.ls' -> fd 3 (lr=0x2EC00)"]
+        for s in range(30, 36):
+            skip = 94 if s in (31, 34) else 0        # 188 blocks skipped in the 5 s window 30..34
+            extra.append(f"{s + 0.43:8.2f} [AUDIO] t=1.0 blocos=188 pico=0.0000 cru=0.0000 espera=0 pulados={skip} "
+                         f"perdidos=0 falta=0 anel=1280 portos=1/1 mudo=1")
+        r = self.run_log(text.replace("T0 1000.000\n", "T0 1000.000\n" + "\n".join(extra) + "\n", 1))
+        self.assertAlmostEqual(r["level_ls"], 70.10, places=2)
+        self.assertAlmostEqual(r["hub_skip_pct"], 100 * 188 / (188 * 5), places=3)   # 20 %
+        self.assertEqual(r["load_skip"], 16)         # the hub skips are outside the level window
+
     def test_invalid_when_short_after_level(self):
         r = self.run_log(synth(last_s=85))          # only 12 s of draws>=100 after the load
         self.assertFalse(r["valid"])
