@@ -32,6 +32,7 @@
 #                      The job objects are regenerated on every build (rm -rf of spu_jobs), so an A/B needs a
 #                      different OUT per flag set. An -mcpu newer than apple-m1 may not run on older Macs.
 #   LIFT_OBJ_TAG=tag   extra object suffix so PGO gen/use objects coexist with plain ones
+#   SPU_FMA_ISA_GATE=1 build the lifted SPU job units WITH the PS3_SPU_FMA_ISA gate (default 0 = without; see below)
 #
 # PGO (same recipe as games/gow2/build_macos.sh; measured NEUTRAL in fps on GoW2):
 #   1. LIFT_OBJ_TAG=pgogen LIFT_CFLAGS=-fprofile-generate HOST_CFLAGS=-DPS3_PGO_BUILD \
@@ -69,6 +70,11 @@ JOB_CFLAGS="${JOB_CFLAGS:-}"
 HOST_CFLAGS="${HOST_CFLAGS:-}"
 LINK_CFLAGS="${LINK_CFLAGS:-}"
 LIFT_OBJ_TAG="${LIFT_OBJ_TAG:-}"
+# 0 (default): the lifted SPU job units are built without the PS3_SPU_FMA_ISA gate (runtime/spu/spu_helpers.h
+# SPU_FMA_ISA_GATE): no cold getenv/spu_f*_isa calls in the loops, so clang keeps the SPU register file in host
+# registers (job 844E80: -12 % instructions, -19 % cycles per job at N=1, measured). The generated register unit
+# then refuses to register the lifted jobs when PS3_SPU_FMA_ISA is set (the interpreter runs them). 1 = control build.
+SPU_FMA_ISA_GATE="${SPU_FMA_ISA_GATE:-0}"
 case "$LIFT_OBJ_TAG" in
     ""|[A-Za-z0-9]*) ;;
     *) echo "LIFT_OBJ_TAG must be empty or start with [A-Za-z0-9] (got '$LIFT_OBJ_TAG')" >&2; exit 1 ;;
@@ -205,7 +211,7 @@ if [ -f "$JOB_MANIFEST" ]; then
         exit "$lift_rc"
     else
         for c in "$JOBDIR"/*/spu_recomp.c "$JOBDIR"/spu_jobs_register.c; do
-            clang -std=c11 -O2 $MCPU $LIFT_CFLAGS $JOB_CFLAGS -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
+            clang -std=c11 -O2 $MCPU -DSPU_FMA_ISA_GATE="$SPU_FMA_ISA_GATE" $LIFT_CFLAGS $JOB_CFLAGS -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
             JOB_OBJS+=("$c.o")
         done
         echo "  $(( ${#JOB_OBJS[@]} - 1 )) job(s) lifted"
