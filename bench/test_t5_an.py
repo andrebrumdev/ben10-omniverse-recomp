@@ -44,13 +44,16 @@ def synth(workers=5, last_s=129, mode_word=1):
 
 
 class T(unittest.TestCase):
-    def run_log(self, text, reg=None):
+    def run_log(self, text, reg=None, thr=None):
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "lp_t.log"), "w") as f:
                 f.write(text)
             if reg:
                 with open(os.path.join(d, "lp_t.reg"), "w") as f:
                     f.write(reg)
+            if thr:
+                with open(os.path.join(d, "lp_t.thr"), "w") as f:
+                    f.write(thr)
             return t5_an.an(d, "t")
 
     def test_window_and_means(self):
@@ -111,6 +114,35 @@ class T(unittest.TestCase):
         self.assertEqual(r["reg_top1_max"], "30%:Baz")
         self.assertEqual(r["reg_swap_mb"], "8800->8900")
         self.assertEqual(r["reg_load1_med"], 2.0)
+
+    def test_regime_exclusion_counter(self):
+        # reg_gt100 is the exclusion criterion of the series: only samples INSIDE the window, strictly > 100 %, comma or dot decimals
+        reg = ("1030.0 load= 2,00 1,00 1,00  swap=8728,50M top: 300,0:Early 20,0:Bar \n"      # t=30: before the window
+               "1105.0 load= 3,00 1,00 1,00  swap=8800,00M top: 150,0:Foo 5,0:Bar \n"        # t=105: counts
+               "1110.0 load= 3,00 1,00 1,00  swap=8800,00M top: 100,0:Baz 5,0:Bar \n"        # exactly 100: does NOT count
+               "1115.0 load= 3,00 1,00 1,00  swap=8800,00M top: 101.5:Qux 5.0:Bar \n"        # dot decimals (top sampler): counts
+               "1120.0 load= 3,00 1,00 1,00  swap=8800,00M top: 12,0:Baz 5,0:Bar \n")
+        r = self.run_log(synth(), reg)
+        self.assertEqual(r["reg_gt100"], "2/4")
+        self.assertEqual(r["reg_gt100_names"], "Foo,Qux")
+        self.assertEqual(r["reg_top1_max"], "150%:Foo")
+
+    def test_pcore_window(self):
+        thr = ("1000.500 [THR] t=0.0 tot_ms=0 pcore=-1.00 nthr=41 |\n"                 # t=0.5: before the window
+               "1050.000 [THR] t=50.0 tot_ms=1 pcore=0.10 nthr=41 |\n"                 # t=50: before the window
+               "1100.000 [THR] t=100.0 tot_ms=1 pcore=0.50 nthr=41 | a x1=1\n"
+               "1105.000 [THR] t=105.0 tot_ms=1 pcore=0.90 nthr=41 | a x1=1\n"
+               "1110.000 [THR] t=110.0 tot_ms=1 pcore=0.70 nthr=41 | a x1=1\n")
+        r = self.run_log(synth(), thr=thr)
+        self.assertEqual(r["pcore_med"], 0.7)
+        self.assertEqual(r["pcore_min"], 0.5)
+
+    def test_p99_and_draws_filter(self):
+        r = self.run_log(synth())
+        self.assertEqual(r["ft_p95"], 25.0)
+        self.assertEqual(r["ft_p99"], 30.0)                                  # not the p95 column
+        low = synth().replace("  100.43 [FPS] fps=30 draws=250", "  100.43 [FPS] fps=30 draws=3")
+        self.assertEqual(self.run_log(low)["win_s"], 38)                      # a second with < 100 draws (loading) leaves the window
 
 
 def _mean_wait():

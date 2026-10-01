@@ -9,8 +9,7 @@ Ferramentas novas: `bench/t5_an.py`, `bench/t5_table.py`, `bench/test_t5_an.py`.
 ## Veredito
 
 **A porta G-C REPROVA.** N=5: fps médio 48,07 (corridas 48,45 / 46,88 / 48,87), abaixo de 55; p95 do frametime 22,4 ms (22,0-23,1), acima de 18 ms.
-A Tarefa 9 não se justifica com esta evidência. Os falsificadores F2 (us/job do 844e80 a N=5 = 428 us = 2,4x os 177 us do P1 e 1,75x a mediana de N=1
-desta série; limite 1,45x = 257 us) e F3 (hold da giant 14,4 ms/quadro, acima de 10, sem FIFO_NOLOCK) disparam.
+A Tarefa 9 não se justifica com esta evidência. Os falsificadores F2 (us/job do 844e80 a N=5 = 428 us = 2,4x os 177 us do P1 e 1,75x a média de n1b-d (244 us; 1,82x a mediana das 4 corridas de N=1, 235 us; 2,35x a n1a, 182 us); limite 1,45x = 257 us) e F3 (hold da giant 14,4 ms/quadro, acima de 10, sem FIFO_NOLOCK) disparam.
 Próxima: **Tarefa 6 (causa da inflação do custo por job)**, depois a 8 em cima dela; a 7 só se a 6 implicar a giant.
 
 ## Medido (gameplay = `.ls` do nível + 20 s -> fim, 238-243 s por corrida; 11 corridas válidas)
@@ -33,7 +32,7 @@ N=5 não deriva (06:22 / 06:38 / 07:04: 48,5 / 46,9 / 48,9).
 
 O chain é o estágio crítico em TODO N (parede do chain = 96-100 % do quadro). A 5 workers: chain 19,9 ms = soma de jobs / 5 (17,8) + barreira e cauda (2,1; eficiência 0,894).
 A soma de jobs cresce com N (54,8 ms a N=1 contra 88,9 a N=5): o excesso, 34 ms / 5 / 0,894 = **7,6 ms do chain (37 %)** (11 ms, 53 %, contra a n1a) é a inflação por job.
-us/job do 844e80 contra a mediana de N=1 (244): x1,35 (N=2), x1,57 (N=3), x1,75 (N=5), curva suave, e já x1,35 a N=2 com fatia de P-cores 0,98, então só E-core NÃO explica
+us/job do 844e80 contra a média de n1b-d (244; a mediana das 4 corridas de N=1 é 235, a n1a é 182): x1,35 (N=2), x1,57 (N=3), x1,75 (N=5), curva suave, e já x1,35 a N=2 com fatia de P-cores 0,98, então só E-core NÃO explica
 (a N=5 a fatia cai a 0,65 por construção: mais de 4 threads quentes em 4 P-cores). O decode (veThread0, não é job) infla junto (4,3 -> 7,8) e a GPU fica plana (7,3 -> 6,8):
 a lentidão é de CPU e compartilhada. Giant: hold 9 -> 14,4 ms/q e espera 20 -> 36 ms/q, não é crítica (14,4 < 20,8) mas é 86 % de um quadro de 16,7 ms.
 Hipóteses para a Tarefa 6, SEM discriminar aqui: contenção de ajudantes do runtime/giant, banda de memória/LLC ou frequência do SoC sob carga multi-core, derrame para E-core a N=5.
@@ -72,10 +71,13 @@ Ordem: planejada N1 N3 N5 N2 | N2 N5 N3 N1; a primeira invocação do meu wrappe
 ## Previsões contra o medido (`predictions_t5.md`)
 
 Erradas: fps de N=2 (previ 35, deu 27,1), N=3 (44, deu 34,3), us/job a N=5 (300, deu 428), decode (5-6, deu 7,8), áudio a N=5 (6 %, deu 13,9 %), N=1 (3 de 4 corridas abaixo do intervalo).
-Certas: fps de N=5 (47 -> 48,1), p95 (25 -> 22,4), hold > 10 (75 % previsto), gate falha (80 %). O modelo supôs inflação por job de 1,15 / 1,3 / 1,7; o medido é 1,35 / 1,57 / 1,75 sobre a mediana
-de N=1 (1,8 / 2,1 / 2,4 sobre a n1a): o acerto de N=5 foi dois erros se cancelando (custo por job subestimado, eficiência de barreira como prevista).
+Certas: fps de N=5 (47 -> 48,1), p95 (25 -> 22,4), hold > 10 (75 % previsto), gate falha (80 %). O modelo supôs inflação por job de 1,15 / 1,3 / 1,7; o medido é 1,35 / 1,57 / 1,75 sobre a média de n1b-d
+(1,8 / 2,1 / 2,4 sobre a n1a): o acerto de N=5 foi dois erros se cancelando (custo por job subestimado, eficiência de barreira como prevista).
 
 ## Limites
+
+O pad (`s9b.pad`) é por tempo de parede, então em N menor o jogo anda menos conteúdo na mesma janela (câmera lenta). Conferido: jobs por quadro iguais entre os braços
+(235-244 em todas as 11 corridas, `jobs_f` do `t5_an.py`), então o custo por quadro é comparável entre N, mas a cena exata não é a mesma.
 
 Sem a repetição do melhor braço no regime R2 (VM ligada): fora deste briefing, a VM estava desligada (Docker parado). `PS3_BEN10_FPS=60` força o modo 1 só para medir capacidade; a velocidade do `auto` não foi medida.
 Percentis do frametime aproximados (o log só traz por segundo). `[FPS]` é inteiro por segundo (+-0,5 fps), então chain/quadro a N=1 dá 101-103 %. Nenhum `sample` de threads de worker (é da Tarefa 6).
