@@ -90,7 +90,9 @@ static int child(const char *mode)
     for (int i = 0; i < 650; i++) {
         usleep(2000);
         gow2_midasm_Ben10LimiterEnter(c);
-        c->gpr[3] = 10; ref->gpr[3] = 10;
+        /* vary the game's ticks (10/20/30/odd): a hook that wrote any constant, 10 included, is caught */
+        uint64_t gt = (i % 4 == 3) ? 17u : 10u * (uint64_t)(1 + i % 3);
+        c->gpr[3] = gt; ref->gpr[3] = gt;
         gow2_midasm_Ben10FrameStep(c);
         CHECK(memcmp(c, ref, sizeof *c) == 0);
     }
