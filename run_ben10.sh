@@ -36,6 +36,13 @@
 #                        for one more busy core: ./run_ben10.sh PS3_JC_WORKERS=3. Serial walker (old behaviour):
 #                        ./run_ben10.sh PS3_JC_WORKERS=1. Evidence: docs/superpowers/plans/2026-09-30-ben10-pipeline-opportunities.md
 #                        (ps3recomp, Tasks 3-4) and bench/README.md.
+#                        COST (measured in the same T4 logs, revisao adversarial): audio blocks skipped in
+#                        gameplay (t>=130 s) grow with the worker count, because the job workers compete
+#                        with the audio producer for cores. Quiet machine: 1 worker 0.06% (19-20 blocks in
+#                        ~182 s, 3 runs, old binary included), 2 workers 0.7-1.0% (RVSOAK 592 s: 0.72%;
+#                        h2 271 s: 1.04%), 3 workers 4.9-7.9% (loaded regime, no quiet 3-worker run).
+#                        Loading screens stay at 0% (HANDOFF). If the crackle bothers more than the ~+30% fps
+#                        gain: ./run_ben10.sh PS3_JC_WORKERS=1.
 #   PS3_DEV_FLASH=<dir>  host firmware tree for /dev_flash (read-only). Unset:
 #                        the RPCS3 install's dev_flash when present
 #                        ($HOME/Library/Application Support/rpcs3/dev_flash on

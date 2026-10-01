@@ -91,3 +91,22 @@ jogo diverge pela razão de velocidade, então só a renderização é comparáv
 - Regime: o fps do braco serial varia de 14 a 20 conforme a maquina (outras sessoes compilando); so' comparar bracos da mesma janela e
   checar `load`/`top` do `.meta`. Controle de regressao: o binario antigo (`boot_ben10_arch`) e o novo com `PS3_JC_WORKERS=1` dao o mesmo
   numero na maquina quieta (20 fps, p50 48 ms, 47 mil jobs/10 s).
+
+## Custo de áudio do `PS3_JC_WORKERS` (revisão adversarial, medido nos logs do T4 + uma corrida nova)
+
+Pulos de áudio no gameplay (t >= 130 s, `[AUDIO] pulados` / 188 blocos/s), mesma receita (HANDOFF + MASK):
+
+| braço | corridas (regime) | % de blocos pulados |
+|---|---|---|
+| 1 worker | w1g, w1h, binário antigo arch1/arch2, w1d (máquina quieta) | 0,06-0,07 (19-24 blocos em ~182 s) |
+| 1 worker | w1c (carregada) | 1,60 |
+| 2 workers | h2 (quieta, 236 s) / RVSOAK (quieta, 592 s, 3 recargas) | 1,04 / 0,72 |
+| 2 workers | w2e / w2c / w2f (outro processo a 99% ou carga alta) | 0,83 / 3,38 / 2,38 |
+| 3 workers | w3c / w3d (carregadas) | 4,88 / 7,91 |
+
+Leitura: com a máquina quieta o serial quase não pula; 2 workers pulam cerca de 12-17x mais (ainda ~1%), 3 workers mais
+ainda. Não é falta de bloco (`falta`=0) nem pulo nas telas de carga (0% com o handoff). O T4 só olhou fps/frametime.
+Corrida nova: `PS3_JC_WORKERS=2` + pad `s9b_reload.pad`, 629 s, 2 recargas do nível (a 3.ª não aconteceu: o relógio do pad
+deslizou), sem crash/LONG-WAIT/ICALL-BAD, nenhum segundo parado (intervalo máximo entre `[FPS]` 1,04 s), fps 28 no fim.
+Para voltar ao áudio limpo: `./run_ben10.sh PS3_JC_WORKERS=1`.
+
