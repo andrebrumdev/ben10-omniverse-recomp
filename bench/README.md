@@ -10,7 +10,7 @@ intercalados, >= 2 corridas por braço, janelas por evento, build (rev + mtime) 
 | `lp_an.py <dir> <tag>...` | análise por evento: janela da carga, % de blocos de áudio pulados, espera/retenção do giant, fps/frametime do gameplay |
 | `lp_an2.py <dir> <tag>...` | CPU por thread na janela da carga (precisa do `.thr`) |
 | `phases.py <dir> <tag>...` | visão grossa do áudio por fase (TITULO/CARGA/GAMEPLAY) |
-| `thrmon.c` | `thrmon <pid> [ms]`: CPU por thread, prioridade e fatia de P-cores (compilado sob demanda pelo `run_lp.sh`) |
+| `thrmon.c` | `thrmon <pid> [ms]`: CPU por thread, prioridade, fatia de P-cores, GHz efetivo e IPC do processo (rusage `ri_cycles`/`ri_instructions`) e a pressão térmica do sistema (`therm=` 0 nominal ... 4; notify `com.apple.system.thermalpressurelevel`); compilado sob demanda pelo `run_lp.sh` (apague `bench/out/thrmon` ao mudar o fonte) |
 | `s9b.pad` | `PS3_PAD_SCRIPT`: título -> NEW GAME -> Training Simulation 1 (ocioso depois de 100 s) |
 | `mk_combat_pad.py` / `s9b_combat.pad` | o mesmo até o nível + ciclo mover/atacar/pular de 100 s a 420 s (soak) |
 | `mk_reload_pad.py` / `s9b_reload.pad` | o mesmo até o nível + taps de CROSS + ciclos de recarga do nível pelo menu de pausa (START, DOWN x4, CROSS, CROSS, LEFT, CROSS = Select Level > Training Time > YES); `test_mk_reload_pad.py` valida a gramática e o ciclo offline |
@@ -23,6 +23,10 @@ intercalados, >= 2 corridas por braço, janelas por evento, build (rev + mtime) 
 | `t5_an.py <dir> <tag>...` | A/B do `PS3_JC_WORKERS` no modo de 60 Hz (plano 60 fps, Tarefa 5): por corrida, fps médio (média por segundo), p50/p95/p99 do FRAMETIME, us/job do 844e80, parede do chain e soma dos jobs por quadro, hold/wait da giant por quadro, decode e GPU, % de áudio pulado, velocidade e `mode_word` do `[FRAMESTEP]`, fatia de P-cores, regime (`<tag>.reg`) e a linha `N job workers` |
 | `t5_table.py <dir> [--exclude a,b]` | tabela por braço (média [mín-máx]) e por corrida em cima do `t5_an.py`, com a coluna `agree` (corridas do braço discordam > 10% em fps = precisa de mais uma) |
 | `test_t5_an.py` | teste do `t5_an.py` com log sintético (média x mediana, por quadro, janela do JCPAR, workers, serial, regime): `python3 bench/test_t5_an.py` |
+| `t6_an.py <dir> <tag>... [--bins]` | inflação por job (plano 60 fps, Tarefa 6) a partir das sondas `PS3_TRACE_JC_PHASE` / `PS3_TRACE_ATOMIC_LINE` / `thrmon`: por corrida, parede e CPU por job, preparo, kcycles, kinstruções, IPC, GHz efetivo (ciclos / CPU da thread), por binário e por concorrência k, GHz/IPC/P-core/thermal do processo, mutexes (`[ATOMLINE]`, `[JCLOCK]`) |
+| `test_t6_an.py` | teste do `t6_an.py` com log sintético (janela por evento, média ponderada por jobs, GHz = kcyc/cpu, locks) |
+| `sample_an.py <arq.sampleG.txt>...` | tempo próprio das threads do job chain num `sample`: corpo do job (`ben10_job_*`) contra mem*, sync, sondas, glue; só a fatia vale (o `sample` perturba o jogo). `run_lp.sh <tag> gs` = só a amostra de gameplay (`SAMPLE_SECS`, `SAMPLE_AT`) |
+| `test_sample_an.py` | teste do `sample_an.py` com um `sample` sintético (tempo próprio = nó menos filhos, categorias, fatia de espera) |
 
 Variáveis do `run_lp.sh`: `BENCH_OUT`, `BIN`, `LOCK_DIR`, `PS3RECOMP`, `PAD_FILE`, `STOP_AFTER`
 (padrão 35 s depois do `.ls` do nível), `CAP` (padrão 175 s), `EXTRA_TRACE`, `RECIPE_ENV`.

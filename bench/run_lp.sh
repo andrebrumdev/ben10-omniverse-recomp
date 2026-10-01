@@ -1,7 +1,7 @@
 #!/bin/bash
 # bench/run_lp.sh -- one measured Ben 10 run (muted, hidden window), serialized by a lock dir.
 #
-# usage: bench/run_lp.sh <tag> <profile|clean> [ENV=value]...
+# usage: bench/run_lp.sh <tag> <profile|gs|clean> [ENV=value]...   (gs = only the gameplay sample, no warm/level samples)
 #   Env overrides are appended after the base recipe, so they win (same as run_ben10.sh).
 #   NOTE: this harness does NOT source run_ben10.sh; the base recipe below is the one
 #   run_ben10.sh had when the series was taken. Pass RECIPE_ENV ("A=1 B=2") to append recipe
@@ -17,6 +17,8 @@
 #   STOP_AFTER  seconds to keep running after the LEVEL loading screen (default 35; soak: 240+)
 #   CAP         hard cap in seconds since start                       (default 175; soak: 420)
 #   EXTRA_TRACE extra PS3_TRACE_* vars ("PS3_X=1 PS3_Y=1") added to the base trace set
+#   SAMPLE_SECS / SAMPLE_AT  (profile mode) seconds of the gameplay `sample` (default 4) and its start,
+#               seconds after the level .ls (default 25); the sample perturbs the game: slices only
 #
 # Stops STOP_AFTER s after the LEVEL loading screen (first .ls open at t>55 s), cap CAP s.
 # Refuses to run on battery; waits while any game process (boot_ben10*, boot_gow2*, g2play)
@@ -63,8 +65,8 @@ while kill -0 "$PID" 2>/dev/null; do
      sample "$PID" 1 -mayDie -file "$P/lp_$TAG.sampleW.txt" >/dev/null 2>&1; fi
   if [ $MODE = profile ] && [ $LVL != 0 ] && [ $SAMPLED = 0 ]; then SAMPLED=1
      kill -USR1 "$PID"; sample "$PID" 3 -mayDie -file "$P/lp_$TAG.sampleL.txt" >/dev/null 2>&1; fi
-  if [ $MODE = profile ] && [ $LVL != 0 ] && [ $SG = 0 ] && [ $NOW -ge $((LVL+25)) ]; then SG=1
-     sample "$PID" 4 -mayDie -file "$P/lp_$TAG.sampleG.txt" >/dev/null 2>&1; fi
+  if { [ $MODE = profile ] || [ $MODE = gs ]; } && [ $LVL != 0 ] && [ $SG = 0 ] && [ $NOW -ge $((LVL+${SAMPLE_AT:-25})) ]; then SG=1
+     sample "$PID" ${SAMPLE_SECS:-4} -mayDie -file "$P/lp_$TAG.sampleG.txt" >/dev/null 2>&1; fi
   if [ $LVL != 0 ] && [ $NOW -ge $((LVL+STOP_AFTER)) ]; then break; fi
   [ $NOW -ge "$CAP" ] && break
   sleep 0.3

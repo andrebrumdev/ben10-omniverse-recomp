@@ -27,6 +27,10 @@
 #   LIFT_CFLAGS='...'  extra flags for lift chunks and lifted SPU jobs (PGO use: -fprofile-use=F)
 #   HOST_CFLAGS='...'  extra flags for runtime PPU sources (PGO gen: -DPS3_PGO_BUILD)
 #   LINK_CFLAGS='...'  extra flags on the final link (PGO gen: -fprofile-generate)
+#   JOB_CFLAGS='...'   extra flags for the lifted SPU job units ONLY (after -O2 and $MCPU, so `-O3` or
+#                      `-mcpu=apple-m5` win; the PPU lift chunks and the runtime are untouched).
+#                      The job objects are regenerated on every build (rm -rf of spu_jobs), so an A/B needs a
+#                      different OUT per flag set. An -mcpu newer than apple-m1 may not run on older Macs.
 #   LIFT_OBJ_TAG=tag   extra object suffix so PGO gen/use objects coexist with plain ones
 #
 # PGO (same recipe as games/gow2/build_macos.sh; measured NEUTRAL in fps on GoW2):
@@ -61,6 +65,7 @@ HOST_OPT="${HOST_OPT:--O2}"
 MCPU="${PS3_MCPU--mcpu=apple-m1}"
 FORCE_REBUILD_LIFT="${FORCE_REBUILD_LIFT:-0}"
 LIFT_CFLAGS="${LIFT_CFLAGS:-}"
+JOB_CFLAGS="${JOB_CFLAGS:-}"
 HOST_CFLAGS="${HOST_CFLAGS:-}"
 LINK_CFLAGS="${LINK_CFLAGS:-}"
 LIFT_OBJ_TAG="${LIFT_OBJ_TAG:-}"
@@ -200,7 +205,7 @@ if [ -f "$JOB_MANIFEST" ]; then
         exit "$lift_rc"
     else
         for c in "$JOBDIR"/*/spu_recomp.c "$JOBDIR"/spu_jobs_register.c; do
-            clang -std=c11 -O2 $MCPU $LIFT_CFLAGS -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
+            clang -std=c11 -O2 $MCPU $LIFT_CFLAGS $JOB_CFLAGS -w -c "${INC[@]}" -I "$(dirname "$c")" "$c" -o "$c.o"
             JOB_OBJS+=("$c.o")
         done
         echo "  $(( ${#JOB_OBJS[@]} - 1 )) job(s) lifted"
