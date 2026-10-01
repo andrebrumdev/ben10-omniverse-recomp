@@ -7,6 +7,15 @@
 #
 # Assumes the lift already ran:
 #   python3 ../ps3recomp/tools/ppu_lifter.py EBOOT.ELF --functions functions.json -o recomp_macos -j 8
+# The 60 fps plan's lift (mid-asm hooks declared in recomp.toml; bodies in host/ben10_framestep_hook.cpp,
+# no-ops without PS3_BEN10_FPS) is the same command plus --config and another output directory:
+#   python3 ../ps3recomp/tools/ppu_lifter.py EBOOT.ELF --functions functions.json -o recomp_macos_fs -j 6 \
+#       --config recomp.toml          (recomp.toml [main].out_directory = recomp_macos_fs)
+#   ./build_macos.sh recomp_macos_fs
+# Lifter drift gate (2026-09-30, ps3recomp 5ce9f15d): the same command WITHOUT --config reproduces
+# recomp_macos/ppu_recomp_*.cpp byte for byte except the `/* lifter-rev: ... */` comment line (the old lift
+# says 92c69cee-dirty), and the hooked lift = the unhooked one + 7 `gow2_midasm_Ben10*(ctx);` call lines
+# (4 declared EAs) + a declaration block per chunk (chunk boundaries shift by those lines).
 # and the runtime library is current (this script does NOT rebuild it):
 #   cmake --build ../ps3recomp/build-macos
 #
@@ -210,6 +219,16 @@ for c in "$HERE"/host/*.c; do
     HOST_UNIT_OBJS+=("$o")
 done
 echo "  ${#HOST_UNIT_OBJS[@]} host unit(s)"
+
+echo "=== 4c. port host hooks (host/*.cpp, mid-asm hook bodies) -> .o ==="
+for c in "$HERE"/host/*.cpp; do
+    [ -f "$c" ] || continue
+    case "$(basename "$c")" in test_*) continue ;; esac
+    o="$LIFT/host_$(basename "${c%.cpp}").o"
+    clang++ -std=c++20 $HOST_OPT $MCPU $HOST_CFLAGS -Wall -Wextra -Wno-frame-address -c "${INC[@]}" -I "$HERE/host" "$c" -o "$o"
+    HOST_UNIT_OBJS+=("$o")
+done
+echo "  ${#HOST_UNIT_OBJS[@]} host object(s) in total"
 
 echo "=== 5. link ==="
 SDL_FLAGS="${SDL_FLAGS-$(pkg-config --libs sdl2)}"

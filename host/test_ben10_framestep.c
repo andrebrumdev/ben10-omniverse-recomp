@@ -306,6 +306,102 @@ static void test_format(void)
     printf("  %s\n", buf);
 }
 
+/* ---- observer (what the mid-asm hook feeds: the game's REAL ticks, wall + work times) ---- */
+static void test_obs_pairing(void)
+{
+    ben10_fs_obs o;
+    ben10_fs_obs_init(&o);
+    double wall = -1, work = -1;
+    /* the first frame has no previous frame: nothing to account */
+    CHECK(ben10_fs_obs_frame_at(&o, 1000.0, 10, &wall, &work) == 0);
+    CHECK(o.frames == 0);
+    /* limiter entered 4 ms after the previous frame hook, frame hook 16.7 ms after it */
+    ben10_fs_obs_limiter(&o, 1004.0);
+    CHECK(ben10_fs_obs_frame_at(&o, 1016.7, 10, &wall, &work) == 1);
+    CHECK(fabs(wall - 16.7) < 1e-9 && fabs(work - 4.0) < 1e-9);
+    CHECK(o.frames == 1 && o.ticks == 10 && o.hist[1] == 1);
+    /* no limiter entry between two frame hooks (limiter skipped): work = wall */
+    CHECK(ben10_fs_obs_frame_at(&o, 1033.4, 10, &wall, &work) == 1);
+    CHECK(fabs(wall - 16.7) < 1e-9 && fabs(work - 16.7) < 1e-9);
+    /* a stale limiter entry (older than the previous frame hook) is ignored */
+    ben10_fs_obs_limiter(&o, 1040.0);
+    CHECK(ben10_fs_obs_frame_at(&o, 1050.0, 20, &wall, &work) == 1);
+    CHECK(fabs(wall - 16.6) < 1e-9 && fabs(work - 6.6) < 1e-9);
+    CHECK(o.hist[2] == 1);
+    ben10_fs_obs_limiter(&o, 1040.0);                       /* stale: before the last frame hook */
+    CHECK(ben10_fs_obs_frame_at(&o, 1060.0, 30, &wall, &work) == 1);
+    CHECK(fabs(work - wall) < 1e-9);
+    CHECK(o.hist[3] == 1);
+    /* a tick count that is not a multiple of 10 lands in the "other" bucket and still counts */
+    CHECK(ben10_fs_obs_frame_at(&o, 1070.0, 0, &wall, &work) == 1);
+    CHECK(ben10_fs_obs_frame_at(&o, 1080.0, 25, &wall, &work) == 1);
+    CHECK(o.hist[0] == 2 && o.frames == 6 && o.ticks == 10 + 10 + 20 + 30 + 0 + 25);
+    /* absurd clocks: backwards time and gaps over 10 s are clamped, never negative */
+    CHECK(ben10_fs_obs_frame_at(&o, 1000.0, 10, &wall, &work) == 1);
+    CHECK(wall == 0.0 && work == 0.0);
+    CHECK(ben10_fs_obs_frame_at(&o, 99000.0, 10, &wall, &work) == 1);
+    CHECK(wall == 10000.0);
+}
+
+static void test_obs_window_and_speed(void)
+{
+    ben10_fs_obs o;
+    ben10_fs_obs_init(&o);
+    double w, k, t = 5000.0;
+    CHECK(ben10_fs_obs_frame_at(&o, t, 10, &w, &k) == 0);
+    int due = 0, lines = 0;
+    /* 60 fps game at exactly 10 ticks/frame, 16.683 ms: speed ~= 0.9990 .. 1.000 */
+    for (int i = 0; i < 300; i++) {
+        t += 1000.0 / 59.94;
+        ben10_fs_obs_frame_at(&o, t, 10, &w, &k);
+        if (ben10_fs_obs_window_due(&o, t)) { due++; ben10_fs_obs_window_close(&o, t); }
+        lines++;
+    }
+    /* 300 frames = 5.005 s: 5 one-second windows */
+    CHECK(due == 5 && lines == 300);
+    CHECK(fabs(ben10_fs_obs_speed(&o) - 1.0) < 0.002);
+    /* a 30 fps game at 20 ticks/frame also sits at 1.0 */
+    ben10_fs_obs_init(&o);
+    t = 0.0;
+    ben10_fs_obs_frame_at(&o, t, 20, &w, &k);
+    for (int i = 0; i < 300; i++) { t += 1000.0 / 29.97; ben10_fs_obs_frame_at(&o, t, 20, &w, &k); }
+    CHECK(fabs(ben10_fs_obs_speed(&o) - 1.0) < 0.002);
+    /* slow motion: 20 fps at 10 ticks/frame = 0.333x */
+    ben10_fs_obs_init(&o);
+    t = 0.0;
+    ben10_fs_obs_frame_at(&o, t, 10, &w, &k);
+    for (int i = 0; i < 100; i++) { t += 50.0; ben10_fs_obs_frame_at(&o, t, 10, &w, &k); }
+    CHECK(fabs(ben10_fs_obs_speed(&o) - (10.0 / 600.0) / 0.050) < 1e-9);
+    /* nothing accounted: speed is 0, not NaN */
+    ben10_fs_obs_init(&o);
+    CHECK(ben10_fs_obs_speed(&o) == 0.0);
+}
+
+static void test_obs_format(void)
+{
+    ben10_fs st;
+    ben10_fs_obs o;
+    char buf[400];
+    ben10_fs_init(&st, BEN10_FS_FIXED60);
+    ben10_fs_obs_init(&o);
+    double w, k, t = 100.0;
+    ben10_fs_obs_frame_at(&o, t, 10, &w, &k);
+    ben10_fs_obs_window_close(&o, t);                      /* open the first window at t=100 */
+    for (int i = 0; i < 60; i++) { t += 16.683; ben10_fs_obs_frame_at(&o, t, 10, &w, &k); }
+    ben10_fs_obs_window_close(&o, t);
+    ben10_fs_obs_format(&o, &st, 1, buf, sizeof buf);
+    CHECK(strstr(buf, "[FRAMESTEP]") == buf);
+    CHECK(strstr(buf, "policy=60") != NULL);
+    CHECK(strstr(buf, "mode_word=1") != NULL);
+    CHECK(strstr(buf, "frames=60") != NULL);
+    CHECK(strstr(buf, "ticks=600") != NULL);
+    CHECK(strstr(buf, "win_fps=59.9") != NULL);
+    CHECK(strstr(buf, "game_s/wall_s=0.999") != NULL);   /* 600 ticks / 1.00098 s */
+    CHECK(strstr(buf, "hist k1/k2/k3/other=60/0/0/0") != NULL);
+    ben10_fs_obs_format(&o, &st, -1, buf, sizeof buf);
+    CHECK(strstr(buf, "mode_word=?") != NULL);
+}
+
 int main(void)
 {
     test_parse_and_off();
@@ -320,6 +416,9 @@ int main(void)
     test_m_flip_rate();
     test_m_demote_blocked_by_rate();
     test_format();
+    test_obs_pairing();
+    test_obs_window_and_speed();
+    test_obs_format();
     printf("%s: %d checks, %d failed\n", g_fail ? "FAIL" : "PASS", g_checks, g_fail);
     return g_fail ? 1 : 0;
 }

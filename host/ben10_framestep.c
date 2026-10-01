@@ -210,3 +210,93 @@ int ben10_fs_format(const ben10_fs *st, char *buf, size_t n)
         (unsigned long long)st->hist[1], (unsigned long long)st->hist[2],
         (unsigned long long)st->hist[3]);
 }
+
+/* ---- observer ---- */
+
+#define OBS_MAX_GAP_MS 10000.0
+
+void ben10_fs_obs_init(ben10_fs_obs *o)
+{
+    memset(o, 0, sizeof *o);
+    o->t_lim = -1.0;
+    o->win_t0 = -1.0;
+}
+
+void ben10_fs_obs_limiter(ben10_fs_obs *o, double now_ms)
+{
+    o->t_lim = now_ms;
+}
+
+int ben10_fs_obs_frame_at(ben10_fs_obs *o, double now_ms, uint32_t ticks,
+                          double *wall_ms, double *work_ms)
+{
+    double t_lim = o->t_lim;
+    o->t_lim = -1.0;
+    if (!o->have_prev) {
+        o->have_prev = 1;
+        o->t_prev = now_ms;
+        o->win_t0 = now_ms;
+        return 0;
+    }
+    double wall = clean_ms(now_ms - o->t_prev);
+    double work = wall;
+    if (t_lim >= 0.0 && t_lim >= o->t_prev) {
+        work = clean_ms(t_lim - o->t_prev);
+        if (work > wall) work = wall;
+    }
+    o->t_prev = now_ms;
+    o->frames++;
+    o->ticks += ticks;
+    o->wall_ms += wall;
+    if (ticks != 0 && ticks % BEN10_FS_TICK_QUANTUM == 0 &&
+        ticks / BEN10_FS_TICK_QUANTUM <= BEN10_FS_K_MAX)
+        o->hist[ticks / BEN10_FS_TICK_QUANTUM]++;
+    else
+        o->hist[0]++;
+    o->win_frames++;
+    o->win_ticks += ticks;
+    if (wall_ms) *wall_ms = wall;
+    if (work_ms) *work_ms = work;
+    return 1;
+}
+
+int ben10_fs_obs_window_due(const ben10_fs_obs *o, double now_ms)
+{
+    return o->win_t0 >= 0.0 && now_ms - o->win_t0 >= 1000.0;
+}
+
+void ben10_fs_obs_window_close(ben10_fs_obs *o, double now_ms)
+{
+    double el = o->win_t0 >= 0.0 ? now_ms - o->win_t0 : 0.0;
+    if (el > 0.0) {
+        o->last_win_fps = (double)o->win_frames / (el / 1000.0);
+        o->last_win_speed = ((double)o->win_ticks / 600.0) / (el / 1000.0);
+    } else {
+        o->last_win_fps = 0.0;
+        o->last_win_speed = 0.0;
+    }
+    o->win_t0 = now_ms;
+    o->win_frames = 0;
+    o->win_ticks = 0;
+}
+
+double ben10_fs_obs_speed(const ben10_fs_obs *o)
+{
+    return o->wall_ms > 0.0 ? ((double)o->ticks / 600.0) / (o->wall_ms / 1000.0) : 0.0;
+}
+
+int ben10_fs_obs_format(const ben10_fs_obs *o, const ben10_fs *st, int mode_word,
+                        char *buf, size_t n)
+{
+    char mw[16];
+    if (mode_word < 0) snprintf(mw, sizeof mw, "?");
+    else snprintf(mw, sizeof mw, "%d", mode_word);
+    return snprintf(buf, n,
+        "[FRAMESTEP] policy=%s mode_word=%s decision=%d frames=%llu ticks=%llu "
+        "game_s/wall_s=%.3f win_fps=%.1f win_speed=%.3f hist k1/k2/k3/other=%llu/%llu/%llu/%llu",
+        policy_name(st->policy), mw, ben10_fs_game_mode(st),
+        (unsigned long long)o->frames, (unsigned long long)o->ticks, ben10_fs_obs_speed(o),
+        o->last_win_fps, o->last_win_speed,
+        (unsigned long long)o->hist[1], (unsigned long long)o->hist[2],
+        (unsigned long long)o->hist[3], (unsigned long long)o->hist[0]);
+}

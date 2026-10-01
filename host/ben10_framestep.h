@@ -114,6 +114,46 @@ int ben10_fs_game_mode(const ben10_fs *st);
 /* "[FRAMESTEP] policy=.. mode=.. frames=.. ticks=.. game_s/wall_s=.. hist k1/k2/k3=a/b/c" */
 int ben10_fs_format(const ben10_fs *st, char *buf, size_t n);
 
+/*
+ * Observer: what the mid-asm hook measures about the REAL game, independent of any policy.
+ * The hook calls ben10_fs_obs_limiter() at the entry of the game's frame limiter
+ * (func_000F7CF4) and ben10_fs_obs_frame_at() right before the game's logic advance
+ * (`bl func_000B5C4C` at 0xF7FDC), where r3 = the ticks the game itself is about to
+ * advance. Times are milliseconds on any monotonic clock (the hook passes CLOCK_MONOTONIC).
+ *
+ *   wall_ms = period between two frame hooks;
+ *   work_ms = from the previous frame hook to the next limiter entry, i.e. the frame
+ *             WITHOUT the limiter's wait (what policy M judges); falls back to wall_ms when
+ *             no limiter entry happened in between (the limiter was skipped).
+ * Bad clocks are clamped (backwards = 0, gaps above 10 s = 10 s).
+ */
+typedef struct {
+    int      have_prev;
+    double   t_prev;         /* time of the previous frame hook */
+    double   t_lim;          /* time of the last limiter entry; < 0 = none since the last frame */
+    uint64_t frames, ticks;
+    double   wall_ms;
+    uint64_t hist[BEN10_FS_K_MAX + 1];   /* [k] = frames of 10*k ticks; [0] = any other count */
+    /* one-second window */
+    double   win_t0;         /* < 0 = no window open */
+    uint64_t win_frames, win_ticks;
+    double   last_win_fps, last_win_speed;
+} ben10_fs_obs;
+
+void   ben10_fs_obs_init(ben10_fs_obs *o);
+void   ben10_fs_obs_limiter(ben10_fs_obs *o, double now_ms);
+/* Returns 1 when a frame was accounted (wall_ms/work_ms filled), 0 for the very first call. */
+int    ben10_fs_obs_frame_at(ben10_fs_obs *o, double now_ms, uint32_t ticks,
+                             double *wall_ms, double *work_ms);
+int    ben10_fs_obs_window_due(const ben10_fs_obs *o, double now_ms);   /* >= 1000 ms open */
+void   ben10_fs_obs_window_close(ben10_fs_obs *o, double now_ms);       /* record + reopen */
+/* Game seconds per wall second over everything observed (0 when nothing was). */
+double ben10_fs_obs_speed(const ben10_fs_obs *o);
+/* "[FRAMESTEP] policy=.. mode_word=.. decision=.. frames=.. ticks=.. game_s/wall_s=.. win_fps=..
+ *  win_speed=.. hist k1/k2/k3/other=.."; mode_word < 0 prints "?". */
+int    ben10_fs_obs_format(const ben10_fs_obs *o, const ben10_fs *st, int mode_word,
+                           char *buf, size_t n);
+
 #ifdef __cplusplus
 }
 #endif

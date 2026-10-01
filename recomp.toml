@@ -1,0 +1,46 @@
+# recomp.toml -- config do lifter do Ben 10 Omniverse (schema Xenon-style, tools/recomp_config.py).
+#
+# Consumido por ../ps3recomp/tools/ppu_lifter.py via --config (ver o cabecalho do build_macos.sh
+# para o comando exacto do lift). Uma seccao [[midasm_hook]] faz o lifter emitir
+# `gow2_midasm_<Name>(ctx);` ao lado da instrucao ancorada (o prefixo e' do motor); os corpos
+# vivem em host/ben10_framestep_hook.cpp, compilado e ligado pelo build_macos.sh (passo 4c).
+#
+# Todos os hooks sao no-op sem PS3_BEN10_FPS (primeira linha do corpo). Um hook declarado aqui
+# SEM corpo parte o link -- de proposito (falha alto): o corpo entra no mesmo commit.
+#
+# `jump_address` do [[midasm_hook]] NAO esta implementado no lifter -- nao usar.
+#
+# Desenho (plano 2026-09-30-ben10-60fps.md, Tarefa 3; veredito da Tarefa 1 em
+# notes/2026-10-xx-framestep-audit.md): o laco de cena (func_00822120) guarda o passo de quadro
+# na ENTRADA, entao a troca so' e' segura pelo setter do proprio jogo na fronteira de cena. Por
+# isso os dois primeiros hooks sobrescrevem, DEPOIS do load, a palavra de modo que o setter le'
+# da config do jogo (r3 / r0), e o jogo produz sozinho modo, passo e periodo do limitador.
+# Os dois ultimos so' observam o quadro (nao tocam em r3 = os ticks do avanco logico).
+
+[main]
+elf_path = "EBOOT.ELF"                 # local only; nunca commitar o ELF
+functions_json = "functions.json"
+out_directory = "recomp_macos_fs"
+
+# func_000583D8 (setter do modo de quadro, r4 em {0,1,2,>=5}): 0x583E4 = `lwz r3,0x18(r3)`;
+# os tres chamadores observados fazem r4=1 (lr=0x3DC09C).
+[[midasm_hook]]
+name = "Ben10ModeR3"
+address = 0x000583E4
+after_instruction = true
+
+# func_000B2638 (o mesmo setter, sem seletor): 0xB2638 = `lwz r0,0x18(r3)`, a primeira instrucao.
+[[midasm_hook]]
+name = "Ben10ModeR0"
+address = 0x000B2638
+after_instruction = true
+
+# Entrada do limitador de quadro func_000F7CF4 (mede o trabalho do quadro sem a espera).
+[[midasm_hook]]
+name = "Ben10LimiterEnter"
+address = 0x000F7CF4
+
+# `bl func_000B5C4C` em 0xF7FDC (avanco logico; r3 = ticks do proprio jogo). So' observa.
+[[midasm_hook]]
+name = "Ben10FrameStep"
+address = 0x000F7FDC
