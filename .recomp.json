@@ -7,6 +7,7 @@
     "region": "USA"
   },
   "project": "ben10-omniverse-recomp",
+  "wikidata": "Q1571349",
   "status": "in-progress",
   "targets": [
     "macOS"
