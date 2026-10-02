@@ -1,0 +1,23 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Ben 10 Omniverse",
+  "system": "PS3",
+  "type": "recomp",
+  "original": { "region": "USA" },
+  "project": "ben10-omniverse-recomp",
+  "status": "in-progress",
+  "targets": ["macOS"],
+  "toolchain": "ps3recomp",
+  "approach": "Static recompilation of the PPU and Cell SPU code to C/C++ (custom lifters; lifted SPU jobs plus an SPU interpreter for the rest), on a reimplementation of the PS3 OS and libraries. Metal renderer, VideoToolbox for cutscenes, CoreAudio, GameController input. Runs natively on Apple Silicon, no emulator and no JIT.",
+  "maintainers": [{ "name": "andrebrumdev", "link": "https://github.com/andrebrumdev" }],
+  "links": [
+    { "label": "Engine (ps3recomp)", "url": "https://github.com/sp00nznet/ps3recomp" },
+    { "label": "Sister project: God of War II HD", "url": "https://github.com/andrebrumdev/gow2-recomp" }
+  ],
+  "help": [
+    "Levels after the first one are not verified",
+    "Frame rate on fanless Macs (the game's own limiter is 30 fps, it also has a 60 Hz mode)",
+    "Publishing the engine fork so the port can be built from scratch"
+  ],
+  "notes": "Boot, intro videos, title, front-end hub, New Game and the first level (walking, dialogue, HUD) run natively on Apple Silicon. No game code or assets are in this repository; the port needs your own copy of the game. See the README for the status table and the notes/ folder for the engineering log."
+}
